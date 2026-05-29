@@ -7,6 +7,7 @@
 #include "InputMappingContext.h"
 #include "InputAction.h"
 #include "Camera/LOLTopCameraPawn.h"
+#include "Character/LOLHeroCharacter.h"
 
 
 
@@ -26,6 +27,7 @@ void ALOLPlayerController::SetupInputComponent()
 		if (IA_MoveCamera) EIC->BindAction(IA_MoveCamera, ETriggerEvent::Triggered, this, &ALOLPlayerController::OnMoveCamera);
 		if (IA_CenterCamera) EIC->BindAction(IA_CenterCamera, ETriggerEvent::Started, this, &ALOLPlayerController::OnCenterCamera);
 		if (IA_ToggleLock) EIC->BindAction(IA_ToggleLock, ETriggerEvent::Started, this, &ALOLPlayerController::OnToggleLock);
+		if (IA_ClickCommand) EIC->BindAction(IA_ClickCommand, ETriggerEvent::Started, this, &ALOLPlayerController::OnClickCommand);
 	}
 }
 
@@ -52,23 +54,33 @@ void ALOLPlayerController::PlayerTick( float DeltaTime )
 {
 	Super::PlayerTick( DeltaTime );
 	
-	float MX, MY;
-	if (GetMousePosition(MX, MY))
+	if (!CameraPawn) return;
+	
+	if (bCameraLocked && HeroCharacter)
 	{
-		int32 ViewportSizeX, ViewportSizeY;
-		GetViewportSize(ViewportSizeX, ViewportSizeY);
-		
-		FVector2D Dir(
-		  ComputeAxisIntensity(MX, static_cast<float>(ViewportSizeX)),
-		  ComputeAxisIntensity(MY, static_cast<float>(ViewportSizeY))
-		  );
-		
-		UEnhancedInputLocalPlayerSubsystem* LocalPlayerSubsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer());
-		if (!Dir.IsNearlyZero() && IA_MoveCamera && LocalPlayerSubsystem)
+		CameraPawn->SetActorLocation(HeroCharacter->GetActorLocation());
+	}
+	else
+	{
+		float MX, MY;
+		if (GetMousePosition(MX, MY))
 		{
-			LocalPlayerSubsystem->InjectInputForAction(IA_MoveCamera, FInputActionValue(Dir), {}, {});
+			int32 ViewportSizeX, ViewportSizeY;
+			GetViewportSize(ViewportSizeX, ViewportSizeY);
+		
+			FVector2D Dir(
+			  ComputeAxisIntensity(MX, static_cast<float>(ViewportSizeX)),
+			  ComputeAxisIntensity(MY, static_cast<float>(ViewportSizeY))
+			  );
+		
+			UEnhancedInputLocalPlayerSubsystem* LocalPlayerSubsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer());
+			if (!Dir.IsNearlyZero() && IA_MoveCamera && LocalPlayerSubsystem)
+			{
+				LocalPlayerSubsystem->InjectInputForAction(IA_MoveCamera, FInputActionValue(Dir), {}, {});
+			}
 		}
 	}
+	
 	
 }
 
@@ -85,18 +97,25 @@ void ALOLPlayerController::OnMoveCamera(const FInputActionValue& Value)
 
 void ALOLPlayerController::OnToggleLock(const FInputActionValue& Value)
 {
-	if (!CameraPawn) return;
 	bCameraLocked = !bCameraLocked;
 }
 
 void ALOLPlayerController::OnCenterCamera(const FInputActionValue& Value)
 {
-	if (!CameraPawn) return;
+	if (!CameraPawn || !HeroCharacter) return;
 	
+	CameraPawn->SetActorLocation(HeroCharacter->GetActorLocation());
 }
 
-void ALOLPlayerController::OnMoveHero(const FInputActionValue& Value)
+void ALOLPlayerController::OnClickCommand(const FInputActionValue& Value)
 {
+	if (!CameraPawn || !HeroCharacter) return;
+	
+	FHitResult Hit;
+	if (GetHitResultUnderCursor(ECC_Visibility, false, Hit))
+	{
+		HeroCharacter->OnClickCommand(Hit);
+	}
 	
 }
 
@@ -113,4 +132,14 @@ float ALOLPlayerController::ComputeAxisIntensity(float Pos, float Size) const
 		return +FMath::Clamp(Dist / SoftZonePixels, 0.f, 1.f);
 	}
 	return 0.f;
+}
+
+ALOLHeroCharacter* ALOLPlayerController::GetHeroCharacter() const
+{
+	return HeroCharacter;
+}
+
+void ALOLPlayerController::SetHeroCharacter(ALOLHeroCharacter* NewHeroCharacter)
+{
+	HeroCharacter = NewHeroCharacter;
 }

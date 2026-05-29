@@ -3,9 +3,11 @@
 
 #include "GameMode/LOLGameMode.h"
 #include "Camera/LOLTopCameraPawn.h"
+#include "Player/LOLPlayerController.h"
 
 
 ALOLGameMode::ALOLGameMode()
 {
 	DefaultPawnClass = ALOLTopCameraPawn::StaticClass();
+	PlayerControllerClass = ALOLPlayerController::StaticClass();
 }

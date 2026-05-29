@@ -14,7 +14,7 @@ ALOLTopCameraPawn::ALOLTopCameraPawn()
  	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	
-	USceneComponent* Root = CreateDefaultSubobject<USpringArmComponent>("Root");
+	USceneComponent* Root = CreateDefaultSubobject<USceneComponent>("Root");
 	SetRootComponent(Root);
 	
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>("SpringArm");
@@ -37,6 +37,9 @@ ALOLTopCameraPawn::ALOLTopCameraPawn()
 	Movement->Acceleration = 20000.f;
 	Movement->Deceleration = 20000.f;
 	
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationYaw = false;
+	bUseControllerRotationRoll = false;
 }
 
 // Called when the game starts or when spawned

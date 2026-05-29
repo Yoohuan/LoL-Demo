@@ -10,6 +10,7 @@ class UInputMappingContext;
 class UInputAction;
 class UEnhancedInputLocalPlayerSubsystem;
 class ALOLTopCameraPawn;
+class ALOLHeroCharacter;
 struct FInputActionValue;
 
 /**
@@ -23,6 +24,8 @@ class LOL_DEMO_API ALOLPlayerController : public APlayerController
 public:
 	ALOLPlayerController();
 	
+	ALOLHeroCharacter* GetHeroCharacter() const;
+	void SetHeroCharacter(ALOLHeroCharacter* NewHeroCharacter);
 	
 protected:
 	UPROPERTY(EditDefaultsOnly, Category="LOL|Input")
@@ -34,7 +37,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="LOL|Input|Camera")
 	UInputAction* IA_CenterCamera;
 	UPROPERTY(EditDefaultsOnly, Category="LOL|Input|Hero")
-	UInputAction* IA_MoveHero;
+	UInputAction* IA_ClickCommand;
 	
 	UPROPERTY(EditDefaultsOnly, Category="LOL|Camera")
 	float EdgeThresholdPixels = 8.f;
@@ -50,7 +53,7 @@ protected:
 	void OnMoveCamera(const FInputActionValue& Value);
 	void OnToggleLock(const FInputActionValue& Value);
 	void OnCenterCamera(const FInputActionValue& Value);
-	void OnMoveHero(const FInputActionValue& Value);
+	void OnClickCommand(const FInputActionValue& Value);
 	
 private:
 	UPROPERTY()
@@ -58,4 +61,7 @@ private:
 	bool bCameraLocked = false;
 	
 	float ComputeAxisIntensity(float Pos, float Size) const;
+	
+	UPROPERTY()
+	ALOLHeroCharacter* HeroCharacter;
 };
