@@ -6,9 +6,8 @@
 #include "GameFramework/GameModeBase.h"
 #include "LOLGameMode.generated.h"
 
-/**
- * 
- */
+class ALOLHeroCharacter;
+
 UCLASS()
 class LOL_DEMO_API ALOLGameMode : public AGameModeBase
 {
@@ -17,5 +16,10 @@ class LOL_DEMO_API ALOLGameMode : public AGameModeBase
 public:
 	ALOLGameMode();
 	
+	virtual void HandleStartingNewPlayer_Implementation(APlayerController* NewPC) override;
+	
+private:
+	UPROPERTY(EditDefaultsOnly, Category="Hero")
+	TSubclassOf<ALOLHeroCharacter> HeroClass;
 	
 };

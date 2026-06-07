@@ -24,11 +24,11 @@ protected:
 	// virtual void BeginPlay() override;
 	
 	UPROPERTY(VisibleAnywhere)
-	USpringArmComponent* SpringArm;
+	TObjectPtr<USpringArmComponent> SpringArm;
 	UPROPERTY(VisibleAnywhere)
-	UCameraComponent* Camera;
+	TObjectPtr<UCameraComponent> Camera;
 	UPROPERTY(VisibleAnywhere)
-	UFloatingPawnMovement* Movement;
+	TObjectPtr<UFloatingPawnMovement> Movement;
 
 public:	
 	// Called every frame

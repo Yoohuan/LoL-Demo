@@ -15,7 +15,7 @@ public:
 	// Sets default values for this character's properties
 	ALOLHeroCharacter();
 	
-	void OnClickCommand(const FHitResult& Hit);
+	void IssueMoveOrder(const FVector& TargetLocation);
 
 protected:
 	// Called when the game starts or when spawned

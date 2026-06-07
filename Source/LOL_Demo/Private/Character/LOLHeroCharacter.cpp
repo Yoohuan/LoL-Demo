@@ -49,10 +49,10 @@ void ALOLHeroCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 
 }
 
-void ALOLHeroCharacter::OnClickCommand(const FHitResult& Hit)
+void ALOLHeroCharacter::IssueMoveOrder(const FVector& TargetLocation)
 {
 	if (AController* HeroController = GetController())
 	{
-		UAIBlueprintHelperLibrary::SimpleMoveToLocation(HeroController, Hit.ImpactPoint);
+		UAIBlueprintHelperLibrary::SimpleMoveToLocation(HeroController, TargetLocation);
 	}
 }

@@ -8,7 +8,7 @@
 #include "InputAction.h"
 #include "Camera/LOLTopCameraPawn.h"
 #include "Character/LOLHeroCharacter.h"
-
+#include "PlayerState/LOLPlayerState.h"
 
 
 ALOLPlayerController::ALOLPlayerController()
@@ -55,6 +55,8 @@ void ALOLPlayerController::PlayerTick( float DeltaTime )
 	Super::PlayerTick( DeltaTime );
 	
 	if (!CameraPawn) return;
+
+	ALOLHeroCharacter* HeroCharacter = GetControlledHero();
 	
 	if (bCameraLocked && HeroCharacter)
 	{
@@ -102,6 +104,7 @@ void ALOLPlayerController::OnToggleLock(const FInputActionValue& Value)
 
 void ALOLPlayerController::OnCenterCamera(const FInputActionValue& Value)
 {
+	ALOLHeroCharacter* HeroCharacter = GetControlledHero();
 	if (!CameraPawn || !HeroCharacter) return;
 	
 	CameraPawn->SetActorLocation(HeroCharacter->GetActorLocation());
@@ -109,12 +112,13 @@ void ALOLPlayerController::OnCenterCamera(const FInputActionValue& Value)
 
 void ALOLPlayerController::OnClickCommand(const FInputActionValue& Value)
 {
+	ALOLHeroCharacter* HeroCharacter = GetControlledHero();
 	if (!CameraPawn || !HeroCharacter) return;
 	
 	FHitResult Hit;
 	if (GetHitResultUnderCursor(ECC_Visibility, false, Hit))
 	{
-		HeroCharacter->OnClickCommand(Hit);
+		HeroCharacter->IssueMoveOrder(Hit.ImpactPoint);
 	}
 	
 }
@@ -134,12 +138,20 @@ float ALOLPlayerController::ComputeAxisIntensity(float Pos, float Size) const
 	return 0.f;
 }
 
-ALOLHeroCharacter* ALOLPlayerController::GetHeroCharacter() const
-{
-	return HeroCharacter;
-}
 
-void ALOLPlayerController::SetHeroCharacter(ALOLHeroCharacter* NewHeroCharacter)
+ALOLHeroCharacter* ALOLPlayerController::GetControlledHero() const
 {
-	HeroCharacter = NewHeroCharacter;
+	ALOLPlayerState* PS = GetPlayerState<ALOLPlayerState>();
+	if (!PS)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[GetControlledHero] PlayerState is NULL (cast to ALOLPlayerState failed?)"));
+		return nullptr;
+	}
+
+	ALOLHeroCharacter* Hero = PS->GetControlledHero();
+	if (!Hero)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[GetControlledHero] PlayerState OK but ControlledHero is NULL (Hero never assigned)"));
+	}
+	return Hero;
 }

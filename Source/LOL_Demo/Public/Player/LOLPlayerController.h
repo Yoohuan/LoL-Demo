@@ -23,21 +23,21 @@ class LOL_DEMO_API ALOLPlayerController : public APlayerController
 	
 public:
 	ALOLPlayerController();
-	
-	ALOLHeroCharacter* GetHeroCharacter() const;
-	void SetHeroCharacter(ALOLHeroCharacter* NewHeroCharacter);
+
 	
 protected:
+	ALOLHeroCharacter* GetControlledHero() const;
+	
 	UPROPERTY(EditDefaultsOnly, Category="LOL|Input")
-	UInputMappingContext* IMC_LOL;
+	TObjectPtr<UInputMappingContext> IMC_LOL;
 	UPROPERTY(EditDefaultsOnly, Category="LOL|Input|Camera")
-	UInputAction* IA_MoveCamera;
+	TObjectPtr<UInputAction> IA_MoveCamera;
 	UPROPERTY(EditDefaultsOnly, Category="LOL|Input|Camera")
-	UInputAction* IA_ToggleLock;
+	TObjectPtr<UInputAction> IA_ToggleLock;
 	UPROPERTY(EditDefaultsOnly, Category="LOL|Input|Camera")
-	UInputAction* IA_CenterCamera;
+	TObjectPtr<UInputAction> IA_CenterCamera;
 	UPROPERTY(EditDefaultsOnly, Category="LOL|Input|Hero")
-	UInputAction* IA_ClickCommand;
+	TObjectPtr<UInputAction> IA_ClickCommand;
 	
 	UPROPERTY(EditDefaultsOnly, Category="LOL|Camera")
 	float EdgeThresholdPixels = 8.f;
@@ -57,11 +57,9 @@ protected:
 	
 private:
 	UPROPERTY()
-	ALOLTopCameraPawn* CameraPawn;
-	bool bCameraLocked = false;
+	TObjectPtr<ALOLTopCameraPawn> CameraPawn;
+	bool bCameraLocked = true;
 	
 	float ComputeAxisIntensity(float Pos, float Size) const;
 	
-	UPROPERTY()
-	ALOLHeroCharacter* HeroCharacter;
 };
