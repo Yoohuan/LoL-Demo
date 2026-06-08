@@ -25,7 +25,7 @@ ALOLTopCameraPawn::ALOLTopCameraPawn()
 	SpringArm->bInheritPitch = false;
 	SpringArm->bInheritYaw   = false;
 	SpringArm->bInheritRoll  = false;
-	SpringArm->bEnableCameraLag = true;       // 平滑跟随
+	SpringArm->bEnableCameraLag = false;       // 平滑跟随
 	SpringArm->CameraLagSpeed  = 10.f;
 	
 	Camera = CreateDefaultSubobject<UCameraComponent>("Camera");

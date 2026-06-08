@@ -25,7 +25,7 @@ void ALOLPlayerController::SetupInputComponent()
 	if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(InputComponent))
 	{
 		if (IA_MoveCamera) EIC->BindAction(IA_MoveCamera, ETriggerEvent::Triggered, this, &ALOLPlayerController::OnMoveCamera);
-		if (IA_CenterCamera) EIC->BindAction(IA_CenterCamera, ETriggerEvent::Started, this, &ALOLPlayerController::OnCenterCamera);
+		if (IA_CenterCamera) EIC->BindAction(IA_CenterCamera, ETriggerEvent::Triggered, this, &ALOLPlayerController::OnCenterCamera);
 		if (IA_ToggleLock) EIC->BindAction(IA_ToggleLock, ETriggerEvent::Started, this, &ALOLPlayerController::OnToggleLock);
 		if (IA_ClickCommand) EIC->BindAction(IA_ClickCommand, ETriggerEvent::Started, this, &ALOLPlayerController::OnClickCommand);
 	}
