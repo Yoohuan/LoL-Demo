@@ -11,7 +11,8 @@ public class LOL_Demo : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
 			"Core", "CoreUObject", "Engine", "InputCore", 
-			"EnhancedInput", "AIModule", "NavigationSystem"
+			"EnhancedInput", "AIModule", "NavigationSystem",
+			"GameplayAbilities", "GameplayTags", "GameplayTasks"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
