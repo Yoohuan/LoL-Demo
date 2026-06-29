@@ -20,6 +20,16 @@ void ALOLPlayerState::SetControlledHero(ALOLHeroCharacter* NewHero)
 	}
 }
 
+UAbilitySystemComponent* ALOLPlayerState::GetControlledHeroASC() const
+{
+	return ControlledHero ? ControlledHero->GetAbilitySystemComponent() : nullptr;
+}
+
+ULOLAttributeSet* ALOLPlayerState::GetControlledHeroAttributeSet() const
+{
+	return ControlledHero ? ControlledHero->GetAttributeSet() : nullptr;
+}
+
 void ALOLPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

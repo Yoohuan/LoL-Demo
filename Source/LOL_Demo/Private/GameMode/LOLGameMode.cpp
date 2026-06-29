@@ -27,6 +27,7 @@ void ALOLGameMode::HandleStartingNewPlayer_Implementation(APlayerController* New
 	const FRotator Rot = Anchor ? Anchor->GetActorRotation() : FRotator::ZeroRotator;
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	SpawnParams.Owner = NewPC;
 	
 	ALOLHeroCharacter* Hero = GetWorld()->SpawnActor<ALOLHeroCharacter>(
 			HeroClass, Loc, Rot, SpawnParams);

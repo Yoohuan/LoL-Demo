@@ -10,6 +10,8 @@
  * 
  */
 
+class ULOLAttributeSet;
+class UAbilitySystemComponent;
 class ALOLHeroCharacter;
 
 UCLASS()
@@ -20,8 +22,12 @@ class LOL_DEMO_API ALOLPlayerState : public APlayerState
 public:
 	UFUNCTION(BlueprintPure)
 	ALOLHeroCharacter* GetControlledHero() const { return ControlledHero; }
-	
 	void SetControlledHero(ALOLHeroCharacter* NewHero);
+	
+	UFUNCTION(Blueprintable)
+	UAbilitySystemComponent* GetControlledHeroASC() const;
+	UFUNCTION(Blueprintable)
+	ULOLAttributeSet* GetControlledHeroAttributeSet() const;
 	
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
