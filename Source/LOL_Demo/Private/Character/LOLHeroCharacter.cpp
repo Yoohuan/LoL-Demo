@@ -5,6 +5,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "AIController.h"
+#include "AbilitySystem/LOLAbilitySystemComponent.h"
+#include "AbilitySystem/Attributes/LOLAttributeSet.h"
 
 
 // Sets default values
@@ -26,13 +28,61 @@ ALOLHeroCharacter::ALOLHeroCharacter()
 	MovementComponent->MaxWalkSpeed = 325.0f;
 	MovementComponent->bConstrainToPlane = true;
 	MovementComponent->bSnapToPlaneAtStart = true;
+	
+	AbilitySystemComponent = CreateDefaultSubobject<ULOLAbilitySystemComponent>(TEXT("ASC"));
+	AbilitySystemComponent->SetIsReplicated(true);
+	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
+	
+	AttributeSet = CreateDefaultSubobject<ULOLAttributeSet>(FName("AttributeSet"));
+}
+
+UAbilitySystemComponent* ALOLHeroCharacter::GetAbilitySystemComponent() const
+{
+	return AbilitySystemComponent;
+}
+
+void ALOLHeroCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+	InitAbilitySystem();
 }
 
 // Called when the game starts or when spawned
 void ALOLHeroCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	InitAbilitySystem();
+}
+
+void ALOLHeroCharacter::InitAbilitySystem()
+{
+	if (bAbilitySystemInitialized || !AbilitySystemComponent || !AttributeSet) return;
+	bAbilitySystemInitialized = true;
 	
+	AbilitySystemComponent->InitAbilityActorInfo(this, this);
+	
+	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(
+		AttributeSet->GetMovementSpeedAttribute())
+		.AddUObject(this, &ALOLHeroCharacter::OnMovementSpeedChanged);
+	
+	if (HasAuthority()) InitDefaultAttributes();
+}
+
+void ALOLHeroCharacter::InitDefaultAttributes()
+{
+	if (!DefaultAttributesEffect) return;
+	FGameplayEffectContextHandle Ctx = AbilitySystemComponent->MakeEffectContext();
+	Ctx.AddSourceObject(this);
+	const FGameplayEffectSpecHandle Spec = 
+		AbilitySystemComponent->MakeOutgoingSpec(DefaultAttributesEffect, 1.f, Ctx);
+	
+	if (Spec.IsValid())
+		AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+}
+
+void ALOLHeroCharacter::OnMovementSpeedChanged(const FOnAttributeChangeData& Data)
+{
+	GetCharacterMovement()->MaxWalkSpeed = Data.NewValue;
 }
 
 // Called every frame

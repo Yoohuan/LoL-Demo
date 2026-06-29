@@ -120,6 +120,7 @@ protected:
 	UFUNCTION() void OnRep_HealShieldPower(const FGameplayAttributeData& Old) const;
 
 private:
+	void AdjustAttributeForMaxChange(const FGameplayAttributeData& Affected, const FGameplayAttributeData& Max, float NewMax, const FGameplayAttribute& AffectedProp) const;
 	void ClampAttribute(const FGameplayAttribute& Attr, float& NewValue) const;
 	
 };
