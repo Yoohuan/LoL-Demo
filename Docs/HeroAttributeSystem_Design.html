@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOL_Demo · 英雄属性系统（GAS）架构设计</title>
+<style>
+  :root{
+    --bg:#0a1428; --bg2:#0f1f38; --panel:#102542; --panel2:#0b1a2e;
+    --gold:#c8aa6e; --gold2:#f0e6d2; --teal:#0ac8b9; --blue:#1e90ff;
+    --red:#e0526b; --green:#3ad29f;
+    --text:#cdd6e4; --muted:#8fa3bf; --line:#1e3a5f;
+    --mono:"Cascadia Code","JetBrains Mono",Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;line-height:1.7;font-size:15px}
+  .wrap{display:flex;max-width:1500px;margin:0 auto}
+  /* ---- sidebar ---- */
+  nav{position:sticky;top:0;align-self:flex-start;width:280px;height:100vh;overflow-y:auto;
+    padding:24px 16px;border-right:1px solid var(--line);background:var(--bg2);flex:0 0 280px}
+  nav h2{color:var(--gold);font-size:14px;letter-spacing:2px;text-transform:uppercase;margin:0 0 14px}
+  nav a{display:block;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:6px;
+    font-size:13.5px;border-left:2px solid transparent}
+  nav a:hover{color:var(--gold2);background:#13294a;border-left-color:var(--gold)}
+  nav a.sub{padding-left:26px;font-size:12.5px;color:#7790ad}
+  /* ---- main ---- */
+  main{flex:1;min-width:0;padding:40px 48px 120px}
+  header.hero{border-bottom:2px solid var(--gold);padding-bottom:24px;margin-bottom:36px}
+  header.hero .kicker{color:var(--teal);letter-spacing:3px;font-size:13px;text-transform:uppercase}
+  header.hero h1{font-size:34px;margin:6px 0 10px;color:var(--gold2);
+    background:linear-gradient(90deg,var(--gold),var(--gold2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  header.hero .meta{color:var(--muted);font-size:13.5px}
+  header.hero .meta b{color:var(--text)}
+  section{margin:0 0 56px;scroll-margin-top:20px}
+  h2.sec{font-size:24px;color:var(--gold);border-left:4px solid var(--gold);padding-left:14px;margin:0 0 8px}
+  h2.sec .num{color:var(--teal);font-family:var(--mono);font-size:18px;margin-right:8px}
+  .lead{color:var(--muted);margin:0 0 24px;font-size:15px}
+  h3{color:var(--gold2);font-size:18.5px;margin:30px 0 10px;border-bottom:1px dashed var(--line);padding-bottom:6px}
+  h4{color:var(--teal);font-size:15.5px;margin:20px 0 8px}
+  p{margin:10px 0}
+  code{font-family:var(--mono);background:#0b1a2e;color:#e6c97a;padding:1px 6px;border-radius:4px;font-size:13px;border:1px solid var(--line)}
+  a.inline{color:var(--teal)}
+  ul,ol{margin:10px 0;padding-left:24px}
+  li{margin:5px 0}
+  /* ---- tables ---- */
+  table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+  th{background:#13294a;color:var(--gold2);font-weight:600;white-space:nowrap}
+  tr:nth-child(even) td{background:#0d2038}
+  td code{font-size:12px;white-space:nowrap}
+  .cat{font-weight:700;border-radius:4px;padding:2px 7px;font-size:11.5px;white-space:nowrap}
+  .c-vital{background:#3a1620;color:#ff9eb1}
+  .c-regen{background:#10322a;color:#5fe0bb}
+  .c-off{background:#3a2a10;color:#f0c468}
+  .c-pen{background:#341c3a;color:#d79bf0}
+  .c-def{background:#10283a;color:#7ec8ff}
+  .c-util{background:#1c3320;color:#9be08a}
+  .c-meta{background:#2a2a2a;color:#bbb}
+  /* ---- code blocks ---- */
+  pre{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--teal);
+    border-radius:8px;padding:16px 18px;overflow-x:auto;margin:14px 0;font-size:13px;line-height:1.55}
+  pre code{background:none;border:none;color:#d6e0f0;padding:0;font-size:13px}
+  .cm{color:#5f7799;font-style:italic}      /* comment */
+  .kw{color:#5fb3ff}                          /* keyword */
+  .ty{color:#5fe0bb}                          /* type */
+  .fn{color:#e6c97a}                          /* func */
+  .st{color:#e08a6b}                          /* string */
+  .nm{color:#c89bf0}                          /* number/macro */
+  .pre-title{font-family:var(--mono);font-size:12px;color:var(--muted);margin:18px 0 -6px;
+    background:#0d2038;display:inline-block;padding:3px 10px;border:1px solid var(--line);border-bottom:none;border-radius:6px 6px 0 0}
+  /* ---- callouts ---- */
+  .box{border-radius:8px;padding:13px 18px;margin:16px 0;border:1px solid var(--line);background:var(--panel)}
+  .box .t{font-weight:700;display:block;margin-bottom:4px}
+  .tip{border-left:4px solid var(--teal)} .tip .t{color:var(--teal)}
+  .warn{border-left:4px solid var(--red);background:#2a1620} .warn .t{color:var(--red)}
+  .note{border-left:4px solid var(--gold)} .note .t{color:var(--gold)}
+  .key{border-left:4px solid var(--green);background:#0e2a22} .key .t{color:var(--green)}
+  /* ---- diagram ---- */
+  .diagram{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:24px;margin:18px 0}
+  .node{border:2px solid var(--line);border-radius:10px;padding:12px 16px;margin:0;background:#13294a;display:inline-block;vertical-align:top}
+  .node .nt{color:var(--gold);font-weight:700;font-family:var(--mono);font-size:14px}
+  .node .nd{color:var(--muted);font-size:12px;margin-top:4px}
+  .node.asc{border-color:var(--teal)} .node.asc .nt{color:var(--teal)}
+  .node.av{border-color:var(--gold)}
+  .flow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center}
+  .arrow{color:var(--teal);font-size:22px;font-weight:bold}
+  .stack{display:flex;flex-direction:column;gap:10px;align-items:center}
+  .pill{display:inline-block;background:#13294a;border:1px solid var(--line);border-radius:20px;
+    padding:3px 12px;font-size:12px;color:var(--muted);margin:3px}
+  .formula{background:#0d2038;border:1px solid var(--line);border-radius:8px;padding:14px 18px;margin:12px 0;
+    font-family:var(--mono);font-size:14px;color:var(--gold2);line-height:1.9}
+  .formula .hl{color:var(--teal)}
+  .formula .cmt{color:#5f7799}
+  .step{counter-reset:none;border-left:2px solid var(--line);padding-left:22px;margin-left:6px}
+  .badge{display:inline-block;background:var(--teal);color:#04221f;font-weight:700;border-radius:6px;
+    padding:1px 9px;font-size:12px;margin-right:8px;font-family:var(--mono)}
+  .badge.opt{background:var(--gold);color:#2a1f08}
+  .badge.srv{background:#7ec8ff;color:#06243a}
+  .badge.cli{background:#f0c468;color:#2a1f08}
+  hr{border:none;border-top:1px solid var(--line);margin:30px 0}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:1100px){.two{grid-template-columns:1fr}nav{display:none}main{padding:24px}}
+  footer{color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-top:18px;margin-top:40px}
+  .tag{font-family:var(--mono);color:var(--teal)}
+  .chg{background:#1c3320;color:#9be08a;border:1px solid #2c5a36;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <h2>目录</h2>
+  <a href="#cur">0 · 项目现状速读</a>
+  <a href="#dict">1 · 属性词典</a>
+  <a href="#gas">2 · GAS 核心概念</a>
+  <a href="#arch">3 · 架构设计</a>
+  <a href="#arch-own" class="sub">3.1 ASC 归属决策</a>
+  <a href="#arch-diagram" class="sub">3.2 类关系图</a>
+  <a href="#arch-init" class="sub">3.3 初始化时序</a>
+  <a href="#arch-rep" class="sub">3.4 复制策略</a>
+  <a href="#arch-files" class="sub">3.5 文件结构</a>
+  <a href="#arch-switch" class="sub">3.6 英雄切换流程</a>
+  <a href="#model">4 · 属性建模总表</a>
+  <a href="#math">5 · 战斗公式参考</a>
+  <a href="#impl">6 · 实现步骤</a>
+  <a href="#impl-0" class="sub">Step 0 · Build.cs</a>
+  <a href="#impl-1" class="sub">Step 1 · AttributeSet</a>
+  <a href="#impl-2" class="sub">Step 2 · AS 实现</a>
+  <a href="#impl-3" class="sub">Step 3 · ASC 子类</a>
+  <a href="#impl-4" class="sub">Step 4 · Hero（持有 ASC）</a>
+  <a href="#impl-5" class="sub">Step 5 · PlayerState（切换）</a>
+  <a href="#impl-6" class="sub">Step 6 · 默认属性 GE</a>
+  <a href="#impl-7" class="sub">Step 7 · 伤害 ExecCalc</a>
+  <a href="#impl-8" class="sub">Step 8 · 回复 GE</a>
+  <a href="#roadmap">7 · 开发路线图</a>
+  <a href="#pitfall">8 · 命名规范 & 常见坑</a>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="kicker">LOL_Demo · UE5 · Gameplay Ability System</div>
+  <h1>英雄属性系统架构设计</h1>
+  <div class="meta">
+    为后续 <b>普攻 / 装备 / 技能（GAS）</b> 开发奠基 &nbsp;·&nbsp;
+    属性挂载于 <b>英雄自身</b>（支持<b>英雄切换</b>，经 PlayerState 访问当前英雄） &nbsp;·&nbsp;
+    模块 <code>LOL_Demo</code> &nbsp;·&nbsp; API 宏 <code>LOL_DEMO_API</code> &nbsp;·&nbsp;
+    修订日期 <b>2026-06-27</b>
+  </div>
+</header>
+
+<!-- ============ 0 现状 ============ -->
+<section id="cur">
+  <h2 class="sec"><span class="num">00</span>项目现状速读</h2>
+  <p class="lead">设计前先对齐你当前的代码事实——它直接决定 ASC（能力系统组件）该放哪、怎么初始化。</p>
+
+  <table>
+    <thead><tr><th>类</th><th>基类</th><th>职责</th><th>对 GAS 的意义</th></tr></thead>
+    <tbody>
+      <tr><td><code>ALOLHeroCharacter</code></td><td>ACharacter</td><td>英雄本体；被 <b>AAIController</b> 占有（<code>AutoPossessAI</code>），用 <code>SimpleMoveToLocation</code> 寻路移动</td><td><b>Avatar = Owner</b>——<b>自带</b> ASC + AttributeSet 的战斗实体 ✅</td></tr>
+      <tr><td><code>ALOLPlayerState</code></td><td>APlayerState</td><td>持有 <code>ControlledHero</code>（<b>Replicated</b> + <code>OnRep</code>），跨重生持久</td><td>通过 <code>ControlledHero</code> <b>访问/路由</b>当前英雄数据；管理<b>切换</b>，自身不持有 ASC</td></tr>
+      <tr><td><code>ALOLPlayerController</code></td><td>APlayerController</td><td>占有的是<b>相机 Pawn</b>；右键 <code>OnClickCommand</code> 给英雄下达移动命令</td><td>后续技能的<b>输入入口</b>（转发到当前英雄的 ASC）</td></tr>
+      <tr><td><code>ALOLTopCameraPawn</code></td><td>Pawn</td><td>玩家真正 Possess 的相机</td><td>无战斗属性</td></tr>
+      <tr><td><code>ALOLGameMode</code></td><td>GameModeBase</td><td><code>HandleStartingNewPlayer</code> 里生成英雄并 <code>SetControlledHero</code></td><td>英雄生成点（<b>Mixed 模式</b>需在此设 <code>SpawnParams.Owner</code>）</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box key">
+    <span class="t">★ 四条关键结论（贯穿整篇设计）<span class="chg">已按"属性放英雄"修订</span></span>
+    <ol style="margin:6px 0">
+      <li><b>ASC + AttributeSet 放在英雄 <code>ALOLHeroCharacter</code> 自身</b>。理由：你要做<b>英雄切换</b>展示——每个英雄自带独立属性/技能/冷却，切换只是改变 PlayerState 指向谁，<b>零数据迁移</b>。</li>
+      <li>英雄由 AIController 占有 → 在英雄<b>自己的</b> <code>PossessedBy()</code>（服务器）与 <code>BeginPlay()</code>（客户端）里调 <code>InitAbilityActorInfo(this, this)</code>（Owner = Avatar = 英雄自身）。<code>Hero-&gt;GetPlayerState()</code> 依然是 null，但现在<b>无所谓</b>——ASC 就在英雄身上。</li>
+      <li>PlayerState 通过 <code>GetControlledHero()-&gt;GetAbilitySystemComponent()</code> 访问"当前操控英雄"的数据（封装成便捷 getter，见 Step 5）。</li>
+      <li>GAS 插件已在 <code>.uproject</code> 启用，但<b>尚未</b>加入 <code>Build.cs</code> 依赖 → 编译期还用不了任何 GAS 头文件（Step 0 修复）。</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ 1 词典 ============ -->
+<section id="dict">
+  <h2 class="sec"><span class="num">01</span>属性词典：每个面板数值到底是什么</h2>
+  <p class="lead">按战斗作用分组。"建模倾向"列预告了第 4 节的总表——是当前值池、还是普通加成属性。</p>
+
+  <h3><span class="cat c-vital">生命 / 法力（资源池）</span></h3>
+  <table>
+    <thead><tr><th>属性</th><th>含义</th><th>典型范围</th><th>建模倾向</th></tr></thead>
+    <tbody>
+      <tr><td><b>生命值 Health</b></td><td>当前血量，归零即死亡</td><td>0 → 最大生命值</td><td>当前值池（受伤/治疗结算）</td></tr>
+      <tr><td><b>最大生命值 MaxHealth</b></td><td>血量上限，随等级/装备成长</td><td>≈ 560 → 4000+</td><td>普通属性（上限）</td></tr>
+      <tr><td><b>法力值 Mana</b></td><td>当前蓝量，技能消耗</td><td>0 → 最大法力值</td><td>当前值池</td></tr>
+      <tr><td><b>最大法力值 MaxMana</b></td><td>蓝量上限</td><td>≈ 280 → 2000+</td><td>普通属性（上限）</td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="cat c-regen">回复</span></h3>
+  <table>
+    <thead><tr><th>属性</th><th>含义</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><b>生命回复 HealthRegen</b></td><td>每秒（LoL 习惯写"每5秒"）自动恢复的生命</td><td>用<b>周期性 GameplayEffect</b> 实现，每个周期把回复量加到 Health</td></tr>
+      <tr><td><b>法力回复 ManaRegen</b></td><td>每秒自动恢复的法力</td><td>同上，作用于 Mana</td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="cat c-off">进攻</span></h3>
+  <table>
+    <thead><tr><th>属性</th><th>含义</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><b>攻击力 AttackDamage (AD)</b></td><td>物理伤害基数（普攻 & 物理技能）</td><td>受护甲减免</td></tr>
+      <tr><td><b>法术强度 AbilityPower (AP)</b></td><td>法术伤害基数</td><td>受魔抗减免</td></tr>
+      <tr><td><b>攻击速度 AttackSpeed (AS)</b></td><td>每秒普攻次数</td><td>LoL 硬上限 <b>2.5</b>；驱动攻击间隔与攻击动画播放速率</td></tr>
+      <tr><td><b>暴击率 CritChance</b></td><td>普攻暴击的概率（百分比）</td><td>0~100% → 存 0~1</td></tr>
+      <tr><td><b>暴击伤害 CritDamage</b></td><td>暴击时的伤害倍率</td><td>默认 <b>175%~200%</b>（存 1.75~2.0），可被装备/符文提升</td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="cat c-pen">穿透</span></h3>
+  <p>穿透让你的伤害<b>无视</b>目标一部分防御。数值（flat）与百分比（%）两种，<b>百分比先算、数值后减</b>，且不能把防御压到 0 以下。</p>
+  <table>
+    <thead><tr><th>属性</th><th>含义</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><b>护甲穿透·数值 ArmorPenFlat</b></td><td>固定减少目标护甲（即 LoL 的<b>"穿甲/Lethality"</b>）</td><td>flat，作用于护甲</td></tr>
+      <tr><td><b>护甲穿透·百分比 ArmorPenPercent</b></td><td>按比例无视目标护甲</td><td>存 0~1</td></tr>
+      <tr><td><b>法术穿透·数值 MagicPenFlat</b></td><td>固定减少目标魔抗</td><td>flat，作用于魔抗</td></tr>
+      <tr><td><b>法术穿透·百分比 MagicPenPercent</b></td><td>按比例无视目标魔抗</td><td>存 0~1</td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="cat c-def">防御</span></h3>
+  <table>
+    <thead><tr><th>属性</th><th>含义</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><b>护甲 Armor</b></td><td>减免物理伤害</td><td>可被减甲技能打成负数（负护甲=增伤）</td></tr>
+      <tr><td><b>魔法抗性 MagicResistance (MR)</b></td><td>减免法术伤害</td><td>同上</td></tr>
+      <tr><td><b>韧性 Tenacity</b></td><td>缩短所受<b>控制效果（CC）</b>时长</td><td>百分比；多来源<b>乘法叠加</b></td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="cat c-util">功能 / 续航 / 机动</span></h3>
+  <table>
+    <thead><tr><th>属性</th><th>含义</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><b>技能急速 AbilityHaste (AH)</b></td><td>降低技能冷却</td><td>不是直接 CDR！换算 <code>CDR = AH/(AH+100)</code>，可线性叠加且无上限</td></tr>
+      <tr><td><b>移动速度 MovementSpeed</b></td><td>每秒移动单位</td><td>需<b>同步到</b> <code>CharacterMovement-&gt;MaxWalkSpeed</code></td></tr>
+      <tr><td><b>物理吸血 PhysicalVamp</b></td><td>造成物理伤害按比例回血</td><td>百分比</td></tr>
+      <tr><td><b>魔法吸血 MagicVamp</b></td><td>造成法术伤害按比例回血（法术吸血）</td><td>百分比</td></tr>
+      <tr><td><b>治疗护盾强度 HealShieldPower</b></td><td>放大<b>自己发出</b>的治疗与护盾</td><td>百分比；作用于施加方</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box note">
+    <span class="t">为什么还要两个"看不见"的属性？</span>
+    战斗结算需要一个<b>瞬时通道</b>来承载"这次造成多少伤害/治疗"——即 <code>IncomingDamage</code> / <code>IncomingHealing</code>（Meta 属性，见 2.4）。它们不上面板、不复制，只在一次 GE 执行内存活。
+  </div>
+</section>
+
+<!-- ============ 2 GAS 概念 ============ -->
+<section id="gas">
+  <h2 class="sec"><span class="num">02</span>GAS 核心概念速览</h2>
+  <p class="lead">只讲属性系统必须懂的部分，够你看懂后面所有代码。</p>
+
+  <h3>2.1 五大件</h3>
+  <table>
+    <thead><tr><th>组件</th><th>角色</th><th>本工程放哪</th></tr></thead>
+    <tbody>
+      <tr><td><code>UAbilitySystemComponent</code> (ASC)</td><td>大脑：持有属性、施加效果、激活技能、管理 Tag</td><td><b>ALOLHeroCharacter</b>（每个英雄/单位各一份）</td></tr>
+      <tr><td><code>UAttributeSet</code></td><td>数据容器：声明全部 <code>FGameplayAttributeData</code> 属性 + 钳制/结算逻辑</td><td>同 ASC，挂在英雄身上</td></tr>
+      <tr><td><code>UGameplayEffect</code> (GE)</td><td>唯一修改属性的合法途径：瞬时/持续/无限/周期</td><td>蓝图资产（如 <code>GE_DefaultAttributes</code>）</td></tr>
+      <tr><td><code>UGameplayAbility</code> (GA)</td><td>技能/普攻逻辑</td><td>后续阶段</td></tr>
+      <tr><td><code>FGameplayTag</code></td><td>状态标签（眩晕中、无敌、死亡…）</td><td>贯穿全系统</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.2 ★ BaseValue vs CurrentValue（最重要的心智模型）</h3>
+  <p>每个 <code>FGameplayAttributeData</code> 同时有两个值，决定了"装备加攻击" 和 "升级加攻击" 走完全不同的路径：</p>
+  <table>
+    <thead><tr><th> </th><th>BaseValue（基础值）</th><th>CurrentValue（当前值）</th></tr></thead>
+    <tbody>
+      <tr><td>含义</td><td>永久的"裸"数值</td><td>= BaseValue + 所有<b>临时修饰器</b>聚合的结果</td></tr>
+      <tr><td>被谁改</td><td><b>Instant</b> GE（瞬时，永久修改）</td><td><b>Duration / Infinite</b> GE（临时修饰器，移除即还原）</td></tr>
+      <tr><td>典型场景</td><td>升级 +AD、扣血、消耗蓝</td><td>装备 +50AD（卸下还原）、Buff +20%AD（到时还原）</td></tr>
+      <tr><td>读取</td><td><code>GetXxxAttribute()...GetBaseValue()</code></td><td><code>GetXxx()</code>（访问器默认返回当前值）</td></tr>
+    </tbody>
+  </table>
+  <div class="box tip"><span class="t">直觉记法</span>装备、Buff 这种"会还原"的加成 → <b>无限/持续 GE 改 CurrentValue</b>；升级、扣血这种"永久生效"的 → <b>瞬时 GE 改 BaseValue</b>。</div>
+
+  <h3>2.3 钳制的三个入口</h3>
+  <ul>
+    <li><code>PreAttributeChange(Attr, NewValue&amp;)</code> —— <b>CurrentValue</b> 即将变化前。用于显示层钳制（如把当前生命卡在 [0, MaxHealth]）。注意：这里改 NewValue 不会改 BaseValue。</li>
+    <li><code>PreAttributeBaseChange(Attr, NewValue&amp;)</code> —— <b>BaseValue</b> 即将被 Instant GE 改变前。硬上限要在这里也钳一次。</li>
+    <li><code>PostGameplayEffectExecute(Data)</code> —— Instant / 周期 GE <b>执行后</b>。Meta 属性结算、死亡判定、兜底钳制都在这。</li>
+  </ul>
+
+  <h3>2.4 Meta 属性（伤害管线的核心）</h3>
+  <p>伤害不是"直接减血"，而是先打进一个中间属性 <code>IncomingDamage</code>，在 <code>PostGameplayEffectExecute</code> 里统一经过减伤、吸血、死亡判定后再落到 <code>Health</code>，最后清零。好处：所有复杂计算集中一处，技能只管"我造成 X 点伤害"。</p>
+
+  <h3>2.5 MMC vs ExecCalc（两种自定义计算）</h3>
+  <table>
+    <thead><tr><th> </th><th>ModMagnitudeCalculation (MMC)</th><th>ExecutionCalculation (ExecCalc)</th></tr></thead>
+    <tbody>
+      <tr><td>输出</td><td>单个修饰器的一个标量</td><td>可同时输出多个属性修饰</td></tr>
+      <tr><td>适合</td><td>最大生命=f(等级)、冷却=f(技能急速)</td><td><b>伤害公式</b>（捕获双方 AD/护甲/穿透/暴击）</td></tr>
+      <tr><td>本工程用途</td><td>等级成长、AH→冷却</td><td><b>核心伤害结算</b>（Step 7）</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ 3 架构 ============ -->
+<section id="arch">
+  <h2 class="sec"><span class="num">03</span>架构设计</h2>
+
+  <h3 id="arch-own">3.1 ASC / AttributeSet 放哪？——归属决策 <span class="chg">改为：英雄自身</span></h3>
+  <table>
+    <thead><tr><th>实体</th><th>是否需要独立的属性/技能</th><th>切换 / 复用需求</th><th>ASC 归属</th><th>复制模式</th></tr></thead>
+    <tbody>
+      <tr><td><b>英雄 Hero</b></td><td>是（每个英雄各异）</td><td><b>要做英雄切换展示</b></td><td><b>Hero 自身</b> ✅</td><td>Mixed（或单机 Full）</td></tr>
+      <tr><td>小兵 / 野怪 / 防御塔</td><td>是</td><td>用完即弃</td><td>Pawn 自身</td><td>Minimal</td></tr>
+      <tr><td><span style="color:var(--muted)">（备选）单一不可切换英雄</span></td><td style="color:var(--muted)">是</td><td style="color:var(--muted)">强调跨重生持久</td><td style="color:var(--muted)">PlayerState</td><td style="color:var(--muted)">Mixed</td></tr>
+    </tbody>
+  </table>
+  <div class="box key"><span class="t">结论：属性放英雄身上</span>
+    每个英雄都是<b>自包含</b>的战斗实体（自带 ASC + 属性 + 技能 + 冷却）。<b>切换英雄</b>时只需把 PlayerState 的指向换到另一个英雄——它的属性早已就绪，<b>无需迁移、无需重算</b>。这也与"小兵/野怪把 ASC 挂自己身上"的做法统一，心智模型一致。
+  </div>
+  <div class="box note"><span class="t">唯一要注意的权衡：死亡时别销毁英雄</span>
+    ASC 在英雄 Actor 上 → 若英雄死亡时 <code>Destroy()</code>，属性/等级会随之丢失。LoL 风格本就不该销毁英雄：死亡时<b>隐藏 + 禁用碰撞/输入</b>，计时后<b>原地（或回城）重生</b>，ASC 始终存活，属性自然持久。若以后要跨对局持久的<b>元数据</b>（等级、金币、战绩），那部分再单独存到 <code>ALOLPlayerState</code>（它本就为此而生）。
+  </div>
+
+  <h3 id="arch-diagram">3.2 类关系图</h3>
+  <div class="diagram">
+    <div class="flow">
+      <div class="stack">
+        <div class="node"><div class="nt">ALOLPlayerController</div><div class="nd">占有相机 · 输入入口</div></div>
+        <div class="arrow">↓ 持有</div>
+        <div class="node"><div class="nt">ALOLPlayerState</div><div class="nd">指向当前英雄 · 管理切换 · 持久身份</div></div>
+      </div>
+      <div class="arrow">⟶ <span style="font-size:13px">ControlledHero<br>（Replicated）</span> ⟶</div>
+      <div class="stack">
+        <div class="node av"><div class="nt">ALOLHeroCharacter</div><div class="nd">Avatar = Owner · 被 AIController 占有 · 实现 IAbilitySystemInterface</div></div>
+        <div class="arrow">↓ 自带（CreateDefaultSubobject）</div>
+        <div class="node asc"><div class="nt">ULOLAbilitySystemComponent</div><div class="nd">ASC（SetIsReplicated）</div></div>
+        <div class="node asc"><div class="nt">ULOLAttributeSet</div><div class="nd">25 个属性 + 结算逻辑</div></div>
+      </div>
+    </div>
+    <p style="text-align:center;color:var(--teal);margin:16px 0;font-size:15px">英雄自己初始化：InitAbilityActorInfo(Owner = this, Avatar = this)</p>
+    <p style="text-align:center;color:var(--muted);font-size:12.5px;margin-top:6px">
+      访问当前英雄数据：<span class="tag">PlayerState-&gt;GetControlledHero()-&gt;GetAbilitySystemComponent()</span>（封装为便捷 getter）
+    </p>
+  </div>
+
+  <h3 id="arch-init">3.3 初始化时序（ASC 在英雄上 · 英雄被 AI 占有）</h3>
+  <p>ASC 既然在英雄身上，就由<b>英雄自己</b>初始化；因为 <code>Owner = Avatar = 英雄</code>，不依赖 PlayerState。用一个幂等的 <code>InitAbilitySystem()</code> 助手，两端各触发一次：</p>
+  <table>
+    <thead><tr><th>端</th><th>触发点</th><th>动作</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge srv">服务器</span></td><td><code>ALOLHeroCharacter::PossessedBy()</code><br>（AIController 占有时触发，权威端）</td><td><code>InitAbilitySystem()</code> → <code>InitAbilityActorInfo(this,this)</code> + 应用默认属性 GE</td></tr>
+      <tr><td><span class="badge cli">客户端</span></td><td><code>ALOLHeroCharacter::BeginPlay()</code><br>（AIController 不复制，故客户端走 BeginPlay）</td><td><code>InitAbilitySystem()</code>（幂等，已初始化则跳过）</td></tr>
+      <tr><td><span class="badge srv">服务器</span></td><td><code>ALOLPlayerState::SetControlledHero()</code><br>（GameMode 调用 / 切换时调用）</td><td>换 <code>Owner</code> → PC；相机/HUD 改指向新英雄（属性<b>不</b>在此初始化）</td></tr>
+    </tbody>
+  </table>
+  <div class="box tip"><span class="t">为什么不用 PlayerState 的 OnRep 来初始化了</span>属性已随英雄走，英雄在<b>自己</b>的生命周期里就能完成初始化，逻辑更内聚；切换时也不必反复 init。<code>OnRep_ControlledHero</code> 现在只负责<b>客户端表现</b>（相机跟随、HUD 重绑定），不碰 ASC。</div>
+  <div class="box warn"><span class="t">生成顺序的坑（用 Mixed 模式时必看）</span>
+    <code>GameMode::SpawnActor&lt;Hero&gt;()</code> 会在 <code>SetControlledHero</code> <b>之前</b>就跑完英雄的 <code>BeginPlay</code>，此刻英雄 <code>Owner</code> 还没设成 PC。Mixed 复制模式靠"拥有连接"决定 GE 发给谁——所以请在生成时就 <code>SpawnParams.Owner = NewPC;</code>，保证 BeginPlay 前拥有关系已就绪（见 Step 5）。单机 <code>Full</code> 模式无此问题。
+  </div>
+
+  <h3 id="arch-rep">3.4 复制策略</h3>
+  <ul>
+    <li>ASC：<code>SetIsReplicated(true)</code>。复制模式按场景选：
+      <span class="pill">单机/PIE 演示 → <b>Full</b>（最省心）</span>
+      <span class="pill">多人·玩家英雄 → <b>Mixed</b>（配合 SpawnParams.Owner）</span>
+      <span class="pill">纯 AI 小兵/野怪 → <b>Minimal</b></span>
+    </li>
+    <li>推荐：英雄类用 <b>Mixed</b>（前向兼容多人）；若现在只做单机展示，<b>Full</b> 亦可，之后再切。</li>
+    <li>属性：每个用 <code>DOREPLIFETIME_CONDITION_NOTIFY(..., COND_None, REPNOTIFY_Always)</code>。<b>REPNOTIFY_Always</b> 保证即使预测值与服务器值相同也触发 OnRep，避免 UI/预测错位。</li>
+    <li>Meta 属性（IncomingDamage/Healing）<b>不复制</b>。</li>
+    <li><b>利好：</b>ASC 现在挂在 Character 上，而 Character 默认 <code>NetUpdateFrequency</code> 本就较高（移动需要）——<b>不必</b>像放 PlayerState 时那样手动调到 100。</li>
+  </ul>
+
+  <h3 id="arch-files">3.5 建议文件结构</h3>
+  <pre><code>Source/LOL_Demo/
+├─ Public/AbilitySystem/
+│   ├─ LOLAbilitySystemComponent.h
+│   └─ Attributes/ LOLAttributeSet.h
+│       └─ Execution/ LOLDamageExecCalc.h
+├─ Private/AbilitySystem/        <span class="cm">// 对应 .cpp 同结构</span>
+├─ Public/Character/  LOLHeroCharacter.h     <span class="cm">// 改：实现接口、创建并初始化 ASC/AS</span>
+└─ Public/PlayerState/ LOLPlayerState.h      <span class="cm">// 改：增加"访问当前英雄"getter + 切换逻辑</span>
+
+Content/ (编辑器资产)
+├─ GAS/Effects/  GE_DefaultAttributes / GE_HealthRegen / GE_ManaRegen / GE_Damage
+└─ GAS/Data/     CT_HeroBaseStats(Curve Table，按等级成长)</code></pre>
+
+  <h3 id="arch-switch">3.6 英雄切换流程（本设计的核心收益）</h3>
+  <p>因为每个英雄<b>自带</b>独立的 ASC / 属性 / 技能，切换英雄不需要迁移任何数据——只是改变"谁是当前操控对象"。</p>
+  <div class="diagram">
+    <div class="flow">
+      <div class="node"><div class="nt">英雄 A</div><div class="nd">自带 ASC/属性（存活）</div></div>
+      <div class="arrow">⇄ 切换 ⇄</div>
+      <div class="node av"><div class="nt">PlayerState</div><div class="nd">ControlledHero 指向</div></div>
+      <div class="arrow">⇄</div>
+      <div class="node"><div class="nt">英雄 B</div><div class="nd">自带 ASC/属性（存活）</div></div>
+    </div>
+  </div>
+  <ol>
+    <li><b>(服务器)</b> 调 <code>PlayerState-&gt;SetControlledHero(NewHero)</code>：旧英雄 <code>SetOwner(nullptr)</code>，新英雄 <code>SetOwner(PC)</code>。</li>
+    <li><code>ControlledHero</code> 复制 → 客户端 <code>OnRep_ControlledHero</code>（服务器本地直接执行）：相机改为跟随新英雄（复用你已有的锁定/居中逻辑），HUD <b>解绑</b>旧英雄、<b>绑定</b>新英雄的属性变化委托。</li>
+    <li><b>输入路由</b>：<code>ALOLPlayerController</code> 的技能输入统一走 <code>GetControlledHero()-&gt;GetAbilitySystemComponent()-&gt;...</code>，天然指向当前英雄，无需改动。</li>
+    <li>新英雄的属性早在它自己的 <code>PossessedBy/BeginPlay</code> 就已就绪 → 切换<b>零迁移、零重算</b>。</li>
+  </ol>
+  <div class="box tip"><span class="t">想"复用同一个英雄实例"切换造型/数据？</span>也可以不换 Actor，而是对同一英雄重新应用一套"英雄定义"（属性曲线表 + 技能集 + 网格/动画）。但<b>换 Actor</b> 更简单干净，推荐展示期就用多英雄实例 + 切指向。</div>
+</section>
+
+<!-- ============ 4 总表 ============ -->
+<section id="model">
+  <h2 class="sec"><span class="num">04</span>属性建模总表</h2>
+  <p class="lead">这是 <code>ULOLAttributeSet</code> 的完整字段蓝图——25 个属性的 C++ 名、分类、建模方式、钳制规则、是否复制。</p>
+  <table>
+    <thead><tr><th>面板属性</th><th>C++ 名</th><th>分类</th><th>建模</th><th>Clamp</th><th>复制</th><th>用途 / 公式锚点</th></tr></thead>
+    <tbody>
+      <tr><td>生命值</td><td><code>Health</code></td><td><span class="cat c-vital">Vital</span></td><td>当前值池</td><td>[0, MaxHealth]</td><td>是</td><td>受伤/治疗结算落点</td></tr>
+      <tr><td>最大生命值</td><td><code>MaxHealth</code></td><td><span class="cat c-vital">Vital</span></td><td>Base+Current</td><td>≥ 1</td><td>是</td><td>等级/装备成长</td></tr>
+      <tr><td>法力值</td><td><code>Mana</code></td><td><span class="cat c-vital">Vital</span></td><td>当前值池</td><td>[0, MaxMana]</td><td>是</td><td>技能消耗</td></tr>
+      <tr><td>最大法力值</td><td><code>MaxMana</code></td><td><span class="cat c-vital">Vital</span></td><td>Base+Current</td><td>≥ 0</td><td>是</td><td>蓝量上限</td></tr>
+      <tr><td>生命回复</td><td><code>HealthRegen</code></td><td><span class="cat c-regen">Regen</span></td><td>Base+Current</td><td>可负</td><td>是</td><td>周期 GE 每秒加血</td></tr>
+      <tr><td>法力回复</td><td><code>ManaRegen</code></td><td><span class="cat c-regen">Regen</span></td><td>Base+Current</td><td>≥ 0</td><td>是</td><td>周期 GE 每秒加蓝</td></tr>
+      <tr><td>攻击力</td><td><code>AttackDamage</code></td><td><span class="cat c-off">Offense</span></td><td>Base+Current</td><td>≥ 0</td><td>是</td><td>物理伤害基数</td></tr>
+      <tr><td>法术强度</td><td><code>AbilityPower</code></td><td><span class="cat c-off">Offense</span></td><td>Base+Current</td><td>≥ 0</td><td>是</td><td>法术伤害基数</td></tr>
+      <tr><td>攻击速度</td><td><code>AttackSpeed</code></td><td><span class="cat c-off">Offense</span></td><td>Base+Current</td><td>[0.2, 2.5]</td><td>是</td><td>攻击间隔 = 1/AS</td></tr>
+      <tr><td>暴击率</td><td><code>CritChance</code></td><td><span class="cat c-off">Offense</span></td><td>Base+Current</td><td>[0, 1]</td><td>是</td><td>暴击概率</td></tr>
+      <tr><td>暴击伤害</td><td><code>CritDamage</code></td><td><span class="cat c-off">Offense</span></td><td>Base+Current</td><td>≥ 1</td><td>是</td><td>暴击倍率(默认2.0)</td></tr>
+      <tr><td>护甲</td><td><code>Armor</code></td><td><span class="cat c-def">Defense</span></td><td>Base+Current</td><td>可负</td><td>是</td><td>物理减伤</td></tr>
+      <tr><td>魔法抗性</td><td><code>MagicResistance</code></td><td><span class="cat c-def">Defense</span></td><td>Base+Current</td><td>可负</td><td>是</td><td>法术减伤</td></tr>
+      <tr><td>护甲穿透·数值</td><td><code>ArmorPenFlat</code></td><td><span class="cat c-pen">Pen</span></td><td>Base+Current</td><td>≥ 0</td><td>是</td><td>Lethality</td></tr>
+      <tr><td>护甲穿透·百分比</td><td><code>ArmorPenPercent</code></td><td><span class="cat c-pen">Pen</span></td><td>Base+Current</td><td>[0, 1]</td><td>是</td><td>先 % 后 flat</td></tr>
+      <tr><td>法术穿透·数值</td><td><code>MagicPenFlat</code></td><td><span class="cat c-pen">Pen</span></td><td>Base+Current</td><td>≥ 0</td><td>是</td><td>固定减魔抗</td></tr>
+      <tr><td>法术穿透·百分比</td><td><code>MagicPenPercent</code></td><td><span class="cat c-pen">Pen</span></td><td>Base+Current</td><td>[0, 1]</td><td>是</td><td>按比例无视魔抗</td></tr>
+      <tr><td>技能急速</td><td><code>AbilityHaste</code></td><td><span class="cat c-util">Util</span></td><td>Base+Current</td><td>≥ 0</td><td>是</td><td>CDR=AH/(AH+100)</td></tr>
+      <tr><td>移动速度</td><td><code>MovementSpeed</code></td><td><span class="cat c-util">Util</span></td><td>Base+Current</td><td>≥ 0</td><td>是</td><td>→ MaxWalkSpeed</td></tr>
+      <tr><td>物理吸血</td><td><code>PhysicalVamp</code></td><td><span class="cat c-util">Util</span></td><td>Base+Current</td><td>≥ 0</td><td>是</td><td>物理伤害×%回血</td></tr>
+      <tr><td>魔法吸血</td><td><code>MagicVamp</code></td><td><span class="cat c-util">Util</span></td><td>Base+Current</td><td>≥ 0</td><td>是</td><td>法术伤害×%回血</td></tr>
+      <tr><td>韧性</td><td><code>Tenacity</code></td><td><span class="cat c-util">Util</span></td><td>Base+Current</td><td>[0, 1]</td><td>是</td><td>CC时长×(1−韧性)</td></tr>
+      <tr><td>治疗护盾强度</td><td><code>HealShieldPower</code></td><td><span class="cat c-util">Util</span></td><td>Base+Current</td><td>≥ 0</td><td>是</td><td>治疗/护盾×(1+HSP)</td></tr>
+      <tr><td>—（不上面板）</td><td><code>IncomingDamage</code></td><td><span class="cat c-meta">Meta</span></td><td>瞬时通道</td><td>—</td><td><b>否</b></td><td>ExecCalc 输出 → Health</td></tr>
+      <tr><td>—（不上面板）</td><td><code>IncomingHealing</code></td><td><span class="cat c-meta">Meta</span></td><td>瞬时通道</td><td>—</td><td><b>否</b></td><td>治疗结算 → Health</td></tr>
+    </tbody>
+  </table>
+  <div class="box note"><span class="t">建模选择说明</span>攻速这里建模为"最终每秒攻击次数"，简单直观；若以后要精确还原 LoL 的 <code>基础攻速×(1+额外攻速%)</code>，可再拆出 <code>BaseAttackSpeed</code> + <code>BonusAttackSpeedPercent</code> 两个属性，用 MMC 合成。先按总表落地，够用且好扩展。</div>
+</section>
+
+<!-- ============ 5 公式 ============ -->
+<section id="math">
+  <h2 class="sec"><span class="num">05</span>战斗公式参考</h2>
+  <p class="lead">这些是 ExecCalc / MMC 里要实现的数学，全部对齐英雄联盟的真实规则。</p>
+
+  <h4>护甲 / 魔抗减伤（含穿透）</h4>
+  <div class="formula">
+<span class="cmt">// 1) 先算百分比穿透，再减数值穿透；穿透不能把正防御压到 0 以下</span><br>
+ReducedArmor   = Armor × (1 − <span class="hl">ArmorPenPercent</span>)<br>
+EffectiveArmor = ReducedArmor − <span class="hl">ArmorPenFlat</span><br>
+<span class="cmt">if (Armor &gt; 0) EffectiveArmor = max(0, EffectiveArmor)</span><br><br>
+<span class="cmt">// 2) 减伤系数（负护甲 = 增伤）</span><br>
+若 EffectiveArmor ≥ 0 :  Mul = 100 / (100 + EffectiveArmor)<br>
+若 EffectiveArmor &lt; 0 :  Mul = 2 − 100 / (100 − EffectiveArmor)<br><br>
+最终物理伤害 = 原始物理伤害 × Mul
+  </div>
+  <p style="color:var(--muted);font-size:13px">魔法伤害同理，把 Armor→MagicResistance、ArmorPen*→MagicPen* 即可。</p>
+
+  <h4>暴击</h4>
+  <div class="formula">
+isCrit = Rand() &lt; <span class="hl">CritChance</span><br>
+物理伤害 ×= isCrit ? <span class="hl">CritDamage</span> : 1.0 &nbsp;&nbsp;<span class="cmt">// CritDamage 默认 2.0 (200%)</span>
+  </div>
+
+  <h4>攻击速度</h4>
+  <div class="formula">
+AttackInterval = 1 / clamp(<span class="hl">AttackSpeed</span>, 0.2, 2.5)<br>
+攻击动画播放速率 = AttackSpeed / 基础攻速
+  </div>
+
+  <h4>技能急速 → 冷却</h4>
+  <div class="formula">
+CDR = <span class="hl">AbilityHaste</span> / (AbilityHaste + 100)<br>
+有效冷却 = 基础冷却 × (1 − CDR) = 基础冷却 × 100 / (100 + AbilityHaste)<br>
+<span class="cmt">// 例：AH=100 → 50% CDR；AH=200 → 66.7%</span>
+  </div>
+
+  <h4>韧性 → 控制时长</h4>
+  <div class="formula">
+实际CC时长 = 基础时长 × (1 − <span class="hl">Tenacity</span>)<br>
+多来源乘法叠加：Tenacity_total = 1 − Π(1 − Tᵢ)
+  </div>
+
+  <h4>吸血 / 治疗护盾 / 回复</h4>
+  <div class="formula">
+回血(物理) = 已造成物理伤害 × <span class="hl">PhysicalVamp</span><br>
+回血(法术) = 已造成法术伤害 × <span class="hl">MagicVamp</span><br>
+实际治疗/护盾 = 基础值 × (1 + <span class="hl">HealShieldPower</span>) &nbsp;<span class="cmt">// 作用于施加方</span><br>
+每周期回复 : Health += <span class="hl">HealthRegen</span> × Period &nbsp;(并 clamp 到 MaxHealth)
+  </div>
+</section>
+
+<!-- ============ 6 实现步骤 ============ -->
+<section id="impl">
+  <h2 class="sec"><span class="num">06</span>实现步骤（可直接照做）</h2>
+  <p class="lead">代码均按你的命名（<code>LOL_Demo</code> / <code>LOL_DEMO_API</code> / 现有类）写就，逐步可编译。<b>Step 4（英雄持有 ASC）是本次修订的核心改动。</b></p>
+
+  <div class="step">
+
+  <h3 id="impl-0"><span class="badge">Step 0</span>打通 GAS 编译依赖</h3>
+  <p>GAS 插件已启用，但模块还没链接到它的 C++ 库。编辑 <code>Source/LOL_Demo/LOL_Demo.Build.cs</code>：</p>
+  <pre><code><span class="kw">PublicDependencyModuleNames</span>.AddRange(<span class="kw">new</span> <span class="ty">string</span>[]
+{
+    <span class="st">"Core"</span>, <span class="st">"CoreUObject"</span>, <span class="st">"Engine"</span>, <span class="st">"InputCore"</span>,
+    <span class="st">"EnhancedInput"</span>, <span class="st">"AIModule"</span>, <span class="st">"NavigationSystem"</span>,
+    <span class="st">"GameplayAbilities"</span>, <span class="st">"GameplayTags"</span>, <span class="st">"GameplayTasks"</span>   <span class="cm">// ← 新增：GAS 三件套</span>
+});</code></pre>
+  <div class="box warn"><span class="t">改完必做</span>关闭编辑器 → 重新生成 VS/Rider 工程文件 → 重新编译。若运行时报 TargetData/GlobalData 相关错误，在某模块 <code>StartupModule</code> 里补一句 <code>UAbilitySystemGlobals::Get().InitGlobalData()</code>（UE5.3+ 多数已自动处理）。</div>
+
+  <h3 id="impl-1"><span class="badge">Step 1</span>属性集头文件 <code>LOLAttributeSet.h</code></h3>
+  <p>顶部定义"四合一访问器"宏，再声明全部属性。下面给出<b>完整字段清单</b>（可直接粘贴），OnRep 因为模式重复只示范两个。</p>
+  <div class="pre-title">Public/AbilitySystem/Attributes/LOLAttributeSet.h</div>
+  <pre><code><span class="nm">#pragma once</span>
+<span class="nm">#include</span> <span class="st">"CoreMinimal.h"</span>
+<span class="nm">#include</span> <span class="st">"AttributeSet.h"</span>
+<span class="nm">#include</span> <span class="st">"AbilitySystemComponent.h"</span>   <span class="cm">// ATTRIBUTE_ACCESSORS 宏所需</span>
+<span class="nm">#include</span> <span class="st">"LOLAttributeSet.generated.h"</span>
+
+<span class="cm">// 一次性生成：属性getter / 值getter / 值setter / 初始化器</span>
+<span class="nm">#define ATTRIBUTE_ACCESSORS(ClassName, PropertyName) \</span>
+    <span class="nm">GAMEPLAYATTRIBUTE_PROPERTY_GETTER(ClassName, PropertyName) \</span>
+    <span class="nm">GAMEPLAYATTRIBUTE_VALUE_GETTER(PropertyName) \</span>
+    <span class="nm">GAMEPLAYATTRIBUTE_VALUE_SETTER(PropertyName) \</span>
+    <span class="nm">GAMEPLAYATTRIBUTE_VALUE_INITTER(PropertyName)</span>
+
+<span class="nm">UCLASS()</span>
+<span class="kw">class</span> <span class="ty">LOL_DEMO_API</span> <span class="ty">ULOLAttributeSet</span> : <span class="kw">public</span> <span class="ty">UAttributeSet</span>
+{
+    <span class="nm">GENERATED_BODY()</span>
+<span class="kw">public</span>:
+    <span class="ty">ULOLAttributeSet</span>();
+
+    <span class="kw">virtual void</span> <span class="fn">GetLifetimeReplicatedProps</span>(<span class="ty">TArray</span>&lt;<span class="ty">FLifetimeProperty</span>&gt;&amp; OutProps) <span class="kw">const override</span>;
+    <span class="kw">virtual void</span> <span class="fn">PreAttributeChange</span>(<span class="kw">const</span> <span class="ty">FGameplayAttribute</span>&amp; Attr, <span class="kw">float</span>&amp; NewValue) <span class="kw">override</span>;
+    <span class="kw">virtual void</span> <span class="fn">PreAttributeBaseChange</span>(<span class="kw">const</span> <span class="ty">FGameplayAttribute</span>&amp; Attr, <span class="kw">float</span>&amp; NewValue) <span class="kw">const override</span>;
+    <span class="kw">virtual void</span> <span class="fn">PostGameplayEffectExecute</span>(<span class="kw">const</span> <span class="ty">FGameplayEffectModCallbackData</span>&amp; Data) <span class="kw">override</span>;
+
+    <span class="cm">// ===== Vital =====</span>
+    <span class="nm">UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_Health, Category="Vital")</span>
+    <span class="ty">FGameplayAttributeData</span> Health;
+    <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, Health)</span>
+    <span class="nm">UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_MaxHealth, Category="Vital")</span>
+    <span class="ty">FGameplayAttributeData</span> MaxHealth;
+    <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, MaxHealth)</span>
+    <span class="cm">/* Mana / MaxMana 同样的三行模式 */</span>
+    <span class="ty">FGameplayAttributeData</span> Mana;            <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, Mana)</span>
+    <span class="ty">FGameplayAttributeData</span> MaxMana;         <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, MaxMana)</span>
+
+    <span class="cm">// ===== Regen =====</span>
+    <span class="ty">FGameplayAttributeData</span> HealthRegen;     <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, HealthRegen)</span>
+    <span class="ty">FGameplayAttributeData</span> ManaRegen;       <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, ManaRegen)</span>
+
+    <span class="cm">// ===== Offense =====</span>
+    <span class="ty">FGameplayAttributeData</span> AttackDamage;    <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, AttackDamage)</span>
+    <span class="ty">FGameplayAttributeData</span> AbilityPower;    <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, AbilityPower)</span>
+    <span class="ty">FGameplayAttributeData</span> AttackSpeed;     <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, AttackSpeed)</span>
+    <span class="ty">FGameplayAttributeData</span> CritChance;      <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, CritChance)</span>
+    <span class="ty">FGameplayAttributeData</span> CritDamage;      <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, CritDamage)</span>
+
+    <span class="cm">// ===== Penetration =====</span>
+    <span class="ty">FGameplayAttributeData</span> ArmorPenFlat;    <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, ArmorPenFlat)</span>
+    <span class="ty">FGameplayAttributeData</span> ArmorPenPercent; <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, ArmorPenPercent)</span>
+    <span class="ty">FGameplayAttributeData</span> MagicPenFlat;    <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, MagicPenFlat)</span>
+    <span class="ty">FGameplayAttributeData</span> MagicPenPercent; <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, MagicPenPercent)</span>
+
+    <span class="cm">// ===== Defense =====</span>
+    <span class="ty">FGameplayAttributeData</span> Armor;           <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, Armor)</span>
+    <span class="ty">FGameplayAttributeData</span> MagicResistance; <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, MagicResistance)</span>
+    <span class="ty">FGameplayAttributeData</span> Tenacity;        <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, Tenacity)</span>
+
+    <span class="cm">// ===== Utility =====</span>
+    <span class="ty">FGameplayAttributeData</span> AbilityHaste;    <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, AbilityHaste)</span>
+    <span class="ty">FGameplayAttributeData</span> MovementSpeed;   <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, MovementSpeed)</span>
+    <span class="ty">FGameplayAttributeData</span> PhysicalVamp;    <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, PhysicalVamp)</span>
+    <span class="ty">FGameplayAttributeData</span> MagicVamp;       <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, MagicVamp)</span>
+    <span class="ty">FGameplayAttributeData</span> HealShieldPower; <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, HealShieldPower)</span>
+
+    <span class="cm">// ===== Meta（不复制）=====</span>
+    <span class="nm">UPROPERTY(BlueprintReadOnly, Category="Meta")</span>
+    <span class="ty">FGameplayAttributeData</span> IncomingDamage;  <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, IncomingDamage)</span>
+    <span class="ty">FGameplayAttributeData</span> IncomingHealing; <span class="nm">ATTRIBUTE_ACCESSORS(ULOLAttributeSet, IncomingHealing)</span>
+
+<span class="kw">protected</span>:
+    <span class="nm">UFUNCTION()</span> <span class="kw">void</span> <span class="fn">OnRep_Health</span>(<span class="kw">const</span> <span class="ty">FGameplayAttributeData</span>&amp; Old) <span class="kw">const</span>;
+    <span class="nm">UFUNCTION()</span> <span class="kw">void</span> <span class="fn">OnRep_MaxHealth</span>(<span class="kw">const</span> <span class="ty">FGameplayAttributeData</span>&amp; Old) <span class="kw">const</span>;
+    <span class="cm">// … 为每个"复制"属性各写一个 OnRep（模式完全相同）…</span>
+
+<span class="kw">private</span>:
+    <span class="kw">void</span> <span class="fn">ClampAttribute</span>(<span class="kw">const</span> <span class="ty">FGameplayAttribute</span>&amp; Attr, <span class="kw">float</span>&amp; NewValue) <span class="kw">const</span>;
+};</code></pre>
+  <div class="box tip"><span class="t">省事提示</span>为节省篇幅，上面把 Mana 之后的 <code>UPROPERTY(...ReplicatedUsing=OnRep_Xxx...)</code> 行省成一行。实际写时<b>每个复制属性都要带</b> <code>UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_Xxx, Category="...")</code>。这部分纯机械重复——需要我直接把完整 .h/.cpp 生成到工程就说一声。</div>
+
+  <h3 id="impl-2"><span class="badge">Step 2</span>属性集实现 <code>LOLAttributeSet.cpp</code> 关键四块</h3>
+  <div class="pre-title">① 构造默认值（临时兜底，正式值走 Step 6 的 GE）</div>
+  <pre><code><span class="ty">ULOLAttributeSet</span>::<span class="fn">ULOLAttributeSet</span>()
+{
+    <span class="fn">InitMaxHealth</span>(640.f);  <span class="fn">InitHealth</span>(640.f);
+    <span class="fn">InitMaxMana</span>(280.f);   <span class="fn">InitMana</span>(280.f);
+    <span class="fn">InitAttackDamage</span>(60.f); <span class="fn">InitAttackSpeed</span>(0.65f);
+    <span class="fn">InitArmor</span>(30.f);      <span class="fn">InitMagicResistance</span>(32.f);
+    <span class="fn">InitCritDamage</span>(2.0f); <span class="fn">InitMovementSpeed</span>(325.f);
+    <span class="cm">// 其余默认 0</span>
+}</code></pre>
+  <div class="pre-title">② 复制登记（每个复制属性一行；REPNOTIFY_Always 关键）</div>
+  <pre><code><span class="kw">void</span> <span class="ty">ULOLAttributeSet</span>::<span class="fn">GetLifetimeReplicatedProps</span>(<span class="ty">TArray</span>&lt;<span class="ty">FLifetimeProperty</span>&gt;&amp; P) <span class="kw">const</span>
+{
+    <span class="ty">Super</span>::<span class="fn">GetLifetimeReplicatedProps</span>(P);
+    <span class="nm">DOREPLIFETIME_CONDITION_NOTIFY</span>(<span class="ty">ULOLAttributeSet</span>, Health,    <span class="nm">COND_None</span>, <span class="nm">REPNOTIFY_Always</span>);
+    <span class="nm">DOREPLIFETIME_CONDITION_NOTIFY</span>(<span class="ty">ULOLAttributeSet</span>, MaxHealth, <span class="nm">COND_None</span>, <span class="nm">REPNOTIFY_Always</span>);
+    <span class="cm">// … 其余复制属性同样各一行；IncomingDamage/Healing 不写 …</span>
+}
+
+<span class="kw">void</span> <span class="ty">ULOLAttributeSet</span>::<span class="fn">OnRep_Health</span>(<span class="kw">const</span> <span class="ty">FGameplayAttributeData</span>&amp; Old) <span class="kw">const</span>
+{
+    <span class="nm">GAMEPLAYATTRIBUTE_REPNOTIFY</span>(<span class="ty">ULOLAttributeSet</span>, Health, Old);
+}</code></pre>
+  <div class="pre-title">③ 钳制（CurrentValue 与 BaseValue 共用同一个 helper）</div>
+  <pre><code><span class="kw">void</span> <span class="ty">ULOLAttributeSet</span>::<span class="fn">PreAttributeChange</span>(<span class="kw">const</span> <span class="ty">FGameplayAttribute</span>&amp; A, <span class="kw">float</span>&amp; V)
+{
+    <span class="ty">Super</span>::<span class="fn">PreAttributeChange</span>(A, V);
+    <span class="fn">ClampAttribute</span>(A, V);
+}
+<span class="kw">void</span> <span class="ty">ULOLAttributeSet</span>::<span class="fn">PreAttributeBaseChange</span>(<span class="kw">const</span> <span class="ty">FGameplayAttribute</span>&amp; A, <span class="kw">float</span>&amp; V) <span class="kw">const</span>
+{
+    <span class="ty">Super</span>::<span class="fn">PreAttributeBaseChange</span>(A, V);
+    <span class="fn">ClampAttribute</span>(A, V);
+}
+<span class="kw">void</span> <span class="ty">ULOLAttributeSet</span>::<span class="fn">ClampAttribute</span>(<span class="kw">const</span> <span class="ty">FGameplayAttribute</span>&amp; A, <span class="kw">float</span>&amp; V) <span class="kw">const</span>
+{
+    <span class="kw">if</span> (A == <span class="fn">GetHealthAttribute</span>())          V = <span class="ty">FMath</span>::<span class="fn">Clamp</span>(V, 0.f, <span class="fn">GetMaxHealth</span>());
+    <span class="kw">else if</span> (A == <span class="fn">GetManaAttribute</span>())      V = <span class="ty">FMath</span>::<span class="fn">Clamp</span>(V, 0.f, <span class="fn">GetMaxMana</span>());
+    <span class="kw">else if</span> (A == <span class="fn">GetAttackSpeedAttribute</span>()) V = <span class="ty">FMath</span>::<span class="fn">Clamp</span>(V, 0.2f, 2.5f);
+    <span class="kw">else if</span> (A == <span class="fn">GetCritChanceAttribute</span>() || A == <span class="fn">GetArmorPenPercentAttribute</span>()
+          || A == <span class="fn">GetMagicPenPercentAttribute</span>() || A == <span class="fn">GetTenacityAttribute</span>())
+                                              V = <span class="ty">FMath</span>::<span class="fn">Clamp</span>(V, 0.f, 1.f);
+    <span class="kw">else if</span> (A == <span class="fn">GetMaxHealthAttribute</span>() || A == <span class="fn">GetMaxManaAttribute</span>()
+          || A == <span class="fn">GetAttackDamageAttribute</span>() || A == <span class="fn">GetAbilityPowerAttribute</span>()
+          <span class="cm">/* …其余"≥0"属性… */</span>)             V = <span class="ty">FMath</span>::<span class="fn">Max</span>(V, 0.f);
+}</code></pre>
+  <div class="pre-title">④ 结算：Meta 属性 → Health（伤害管线落点）</div>
+  <pre><code><span class="kw">void</span> <span class="ty">ULOLAttributeSet</span>::<span class="fn">PostGameplayEffectExecute</span>(<span class="kw">const</span> <span class="ty">FGameplayEffectModCallbackData</span>&amp; Data)
+{
+    <span class="ty">Super</span>::<span class="fn">PostGameplayEffectExecute</span>(Data);
+    <span class="kw">const</span> <span class="ty">FGameplayAttribute</span>&amp; Attr = Data.EvaluatedData.Attribute;
+
+    <span class="kw">if</span> (Attr == <span class="fn">GetIncomingDamageAttribute</span>())
+    {
+        <span class="kw">const float</span> Dmg = <span class="fn">GetIncomingDamage</span>();
+        <span class="fn">SetIncomingDamage</span>(0.f);                       <span class="cm">// 用完即清</span>
+        <span class="kw">if</span> (Dmg &gt; 0.f)
+        {
+            <span class="fn">SetHealth</span>(<span class="ty">FMath</span>::<span class="fn">Clamp</span>(<span class="fn">GetHealth</span>() - Dmg, 0.f, <span class="fn">GetMaxHealth</span>()));
+            <span class="kw">if</span> (<span class="fn">GetHealth</span>() &lt;= 0.f) { <span class="cm">/* 广播死亡 / 打 State.Dead 标签 */</span> }
+        }
+    }
+    <span class="kw">else if</span> (Attr == <span class="fn">GetIncomingHealingAttribute</span>())
+    {
+        <span class="kw">const float</span> Heal = <span class="fn">GetIncomingHealing</span>();
+        <span class="fn">SetIncomingHealing</span>(0.f);
+        <span class="fn">SetHealth</span>(<span class="ty">FMath</span>::<span class="fn">Clamp</span>(<span class="fn">GetHealth</span>() + Heal, 0.f, <span class="fn">GetMaxHealth</span>()));
+    }
+    <span class="kw">else if</span> (Attr == <span class="fn">GetHealthAttribute</span>())
+        <span class="fn">SetHealth</span>(<span class="ty">FMath</span>::<span class="fn">Clamp</span>(<span class="fn">GetHealth</span>(), 0.f, <span class="fn">GetMaxHealth</span>()));
+    <span class="kw">else if</span> (Attr == <span class="fn">GetManaAttribute</span>())
+        <span class="fn">SetMana</span>(<span class="ty">FMath</span>::<span class="fn">Clamp</span>(<span class="fn">GetMana</span>(), 0.f, <span class="fn">GetMaxMana</span>()));
+}</code></pre>
+
+  <h3 id="impl-3"><span class="badge">Step 3</span>ASC 子类（先建好，方便后续扩展）</h3>
+  <div class="pre-title">Public/AbilitySystem/LOLAbilitySystemComponent.h</div>
+  <pre><code><span class="nm">#pragma once</span>
+<span class="nm">#include</span> <span class="st">"CoreMinimal.h"</span>
+<span class="nm">#include</span> <span class="st">"AbilitySystemComponent.h"</span>
+<span class="nm">#include</span> <span class="st">"LOLAbilitySystemComponent.generated.h"</span>
+
+<span class="nm">UCLASS()</span>
+<span class="kw">class</span> <span class="ty">LOL_DEMO_API</span> <span class="ty">ULOLAbilitySystemComponent</span> : <span class="kw">public</span> <span class="ty">UAbilitySystemComponent</span>
+{
+    <span class="nm">GENERATED_BODY()</span>
+    <span class="cm">// 后续：输入绑定、技能授予、GameplayTag 事件监听…</span>
+};</code></pre>
+
+  <h3 id="impl-4"><span class="badge">Step 4</span>英雄：创建并初始化 ASC / AttributeSet <span class="chg">核心改动</span></h3>
+  <p>ASC 与属性集都<b>自带在英雄身上</b>，由英雄自己在 <code>PossessedBy</code>（服务器）/ <code>BeginPlay</code>（客户端）初始化。</p>
+  <div class="pre-title">LOLHeroCharacter.h（增量）</div>
+  <pre><code><span class="nm">#include</span> <span class="st">"AbilitySystemInterface.h"</span>
+<span class="kw">class</span> <span class="ty">ULOLAbilitySystemComponent</span>; <span class="kw">class</span> <span class="ty">ULOLAttributeSet</span>;
+<span class="kw">class</span> <span class="ty">UGameplayEffect</span>; <span class="kw">struct</span> <span class="ty">FOnAttributeChangeData</span>;
+
+<span class="kw">class</span> <span class="ty">LOL_DEMO_API</span> <span class="ty">ALOLHeroCharacter</span> : <span class="kw">public</span> <span class="ty">ACharacter</span>, <span class="kw">public</span> <span class="ty">IAbilitySystemInterface</span>
+{
+    <span class="nm">GENERATED_BODY()</span>
+<span class="kw">public</span>:
+    <span class="ty">ALOLHeroCharacter</span>();
+    <span class="kw">virtual</span> <span class="ty">UAbilitySystemComponent</span>* <span class="fn">GetAbilitySystemComponent</span>() <span class="kw">const override</span>;
+    <span class="ty">ULOLAttributeSet</span>* <span class="fn">GetAttributeSet</span>() <span class="kw">const</span> { <span class="kw">return</span> AttributeSet; }
+
+    <span class="kw">virtual void</span> <span class="fn">PossessedBy</span>(<span class="ty">AController</span>* NewController) <span class="kw">override</span>;   <span class="cm">// 服务器初始化</span>
+<span class="kw">protected</span>:
+    <span class="kw">virtual void</span> <span class="fn">BeginPlay</span>() <span class="kw">override</span>;                            <span class="cm">// 客户端初始化</span>
+
+    <span class="nm">UPROPERTY(VisibleAnywhere, Category="GAS")</span>
+    <span class="ty">TObjectPtr</span>&lt;<span class="ty">ULOLAbilitySystemComponent</span>&gt; AbilitySystemComponent;
+    <span class="nm">UPROPERTY()</span> <span class="ty">TObjectPtr</span>&lt;<span class="ty">ULOLAttributeSet</span>&gt; AttributeSet;
+
+    <span class="nm">UPROPERTY(EditDefaultsOnly, Category="GAS")</span>
+    <span class="ty">TSubclassOf</span>&lt;<span class="ty">UGameplayEffect</span>&gt; DefaultAttributesEffect;   <span class="cm">// 指向 GE_DefaultAttributes</span>
+
+    <span class="kw">void</span> <span class="fn">InitAbilitySystem</span>();      <span class="cm">// 幂等：两端各跑一次</span>
+    <span class="kw">void</span> <span class="fn">InitDefaultAttributes</span>();  <span class="cm">// 仅服务器</span>
+    <span class="kw">void</span> <span class="fn">OnMovementSpeedChanged</span>(<span class="kw">const</span> <span class="ty">FOnAttributeChangeData</span>&amp; Data);
+<span class="kw">private</span>:
+    <span class="kw">bool</span> bAbilitySystemInitialized = <span class="kw">false</span>;
+};</code></pre>
+  <div class="pre-title">LOLHeroCharacter.cpp（关键改动）</div>
+  <pre><code><span class="ty">ALOLHeroCharacter</span>::<span class="fn">ALOLHeroCharacter</span>()
+{
+    <span class="cm">// …（原有移动/旋转设置保留）…</span>
+    AbilitySystemComponent = <span class="fn">CreateDefaultSubobject</span>&lt;<span class="ty">ULOLAbilitySystemComponent</span>&gt;(<span class="ty">TEXT</span>(<span class="st">"ASC"</span>));
+    AbilitySystemComponent-&gt;<span class="fn">SetIsReplicated</span>(<span class="kw">true</span>);
+    AbilitySystemComponent-&gt;<span class="fn">SetReplicationMode</span>(<span class="ty">EGameplayEffectReplicationMode</span>::Mixed); <span class="cm">// 单机可用 Full</span>
+    AttributeSet = <span class="fn">CreateDefaultSubobject</span>&lt;<span class="ty">ULOLAttributeSet</span>&gt;(<span class="ty">TEXT</span>(<span class="st">"AttributeSet"</span>));
+}
+
+<span class="ty">UAbilitySystemComponent</span>* <span class="ty">ALOLHeroCharacter</span>::<span class="fn">GetAbilitySystemComponent</span>() <span class="kw">const</span>
+{ <span class="kw">return</span> AbilitySystemComponent; }
+
+<span class="kw">void</span> <span class="ty">ALOLHeroCharacter</span>::<span class="fn">PossessedBy</span>(<span class="ty">AController</span>* NewController)
+{
+    <span class="ty">Super</span>::<span class="fn">PossessedBy</span>(NewController);
+    <span class="fn">InitAbilitySystem</span>();   <span class="cm">// 服务器（AI 占有时触发）</span>
+}
+
+<span class="kw">void</span> <span class="ty">ALOLHeroCharacter</span>::<span class="fn">BeginPlay</span>()
+{
+    <span class="ty">Super</span>::<span class="fn">BeginPlay</span>();
+    <span class="fn">InitAbilitySystem</span>();   <span class="cm">// 客户端（幂等；服务器已初始化则跳过）</span>
+}
+
+<span class="kw">void</span> <span class="ty">ALOLHeroCharacter</span>::<span class="fn">InitAbilitySystem</span>()
+{
+    <span class="kw">if</span> (bAbilitySystemInitialized || !AbilitySystemComponent || !AttributeSet) <span class="kw">return</span>;
+    bAbilitySystemInitialized = <span class="kw">true</span>;
+
+    AbilitySystemComponent-&gt;<span class="fn">InitAbilityActorInfo</span>(<span class="kw">this</span>, <span class="kw">this</span>);   <span class="cm">// Owner = Avatar = 英雄自身</span>
+
+    <span class="cm">// 移动速度属性变化 → 同步到 CharacterMovement</span>
+    AbilitySystemComponent-&gt;<span class="fn">GetGameplayAttributeValueChangeDelegate</span>(
+        AttributeSet-&gt;<span class="fn">GetMovementSpeedAttribute</span>())
+        .<span class="fn">AddUObject</span>(<span class="kw">this</span>, &amp;<span class="ty">ALOLHeroCharacter</span>::OnMovementSpeedChanged);
+
+    <span class="kw">if</span> (<span class="fn">HasAuthority</span>())
+        <span class="fn">InitDefaultAttributes</span>();   <span class="cm">// 仅服务器；属性值会复制到客户端</span>
+}
+
+<span class="kw">void</span> <span class="ty">ALOLHeroCharacter</span>::<span class="fn">InitDefaultAttributes</span>()
+{
+    <span class="kw">if</span> (!DefaultAttributesEffect || !AbilitySystemComponent) <span class="kw">return</span>;
+    <span class="ty">FGameplayEffectContextHandle</span> Ctx = AbilitySystemComponent-&gt;<span class="fn">MakeEffectContext</span>();
+    Ctx.<span class="fn">AddSourceObject</span>(<span class="kw">this</span>);
+    <span class="kw">const</span> <span class="ty">FGameplayEffectSpecHandle</span> Spec =
+        AbilitySystemComponent-&gt;<span class="fn">MakeOutgoingSpec</span>(DefaultAttributesEffect, 1.f, Ctx);
+    <span class="kw">if</span> (Spec.<span class="fn">IsValid</span>())
+        AbilitySystemComponent-&gt;<span class="fn">ApplyGameplayEffectSpecToSelf</span>(*Spec.Data.<span class="fn">Get</span>());
+}
+
+<span class="kw">void</span> <span class="ty">ALOLHeroCharacter</span>::<span class="fn">OnMovementSpeedChanged</span>(<span class="kw">const</span> <span class="ty">FOnAttributeChangeData</span>&amp; Data)
+{
+    <span class="fn">GetCharacterMovement</span>()-&gt;MaxWalkSpeed = Data.NewValue;
+}</code></pre>
+  <div class="box tip"><span class="t">为什么用幂等 helper</span>服务器走 <code>PossessedBy</code>、客户端走 <code>BeginPlay</code>（AIController 不复制，客户端没有 PossessedBy）。用 <code>bAbilitySystemInitialized</code> 保证每台机器只初始化一次，既覆盖两端、又避免重复绑定委托。</div>
+
+  <h3 id="impl-5"><span class="badge">Step 5</span>PlayerState：访问当前英雄 + 切换 <span class="chg">瘦身</span></h3>
+  <p>PlayerState <b>不再</b>创建 ASC，只负责"指向谁"和提供便捷访问；<code>SetControlledHero</code> 兼作切换入口。</p>
+  <div class="pre-title">LOLPlayerState.h（增量）</div>
+  <pre><code><span class="kw">class</span> <span class="ty">ULOLAttributeSet</span>; <span class="kw">class</span> <span class="ty">UAbilitySystemComponent</span>;
+
+<span class="kw">class</span> <span class="ty">LOL_DEMO_API</span> <span class="ty">ALOLPlayerState</span> : <span class="kw">public</span> <span class="ty">APlayerState</span>
+{
+    <span class="nm">GENERATED_BODY()</span>
+<span class="kw">public</span>:
+    <span class="nm">UFUNCTION(BlueprintPure)</span> <span class="ty">ALOLHeroCharacter</span>* <span class="fn">GetControlledHero</span>() <span class="kw">const</span> { <span class="kw">return</span> ControlledHero; }
+    <span class="kw">void</span> <span class="fn">SetControlledHero</span>(<span class="ty">ALOLHeroCharacter</span>* NewHero);   <span class="cm">// 兼作切换入口</span>
+
+    <span class="cm">// —— 便捷访问"当前操控英雄"的 GAS 数据 ——</span>
+    <span class="nm">UFUNCTION(BlueprintPure)</span> <span class="ty">UAbilitySystemComponent</span>* <span class="fn">GetControlledHeroASC</span>() <span class="kw">const</span>;
+    <span class="nm">UFUNCTION(BlueprintPure)</span> <span class="ty">ULOLAttributeSet</span>* <span class="fn">GetControlledHeroAttributeSet</span>() <span class="kw">const</span>;
+    <span class="cm">// …（Replicated ControlledHero / OnRep_ControlledHero / GetLifetimeReplicatedProps 保持不变）…</span>
+};</code></pre>
+  <div class="pre-title">LOLPlayerState.cpp（关键改动）</div>
+  <pre><code><span class="ty">UAbilitySystemComponent</span>* <span class="ty">ALOLPlayerState</span>::<span class="fn">GetControlledHeroASC</span>() <span class="kw">const</span>
+{ <span class="kw">return</span> ControlledHero ? ControlledHero-&gt;<span class="fn">GetAbilitySystemComponent</span>() : <span class="kw">nullptr</span>; }
+
+<span class="ty">ULOLAttributeSet</span>* <span class="ty">ALOLPlayerState</span>::<span class="fn">GetControlledHeroAttributeSet</span>() <span class="kw">const</span>
+{ <span class="kw">return</span> ControlledHero ? ControlledHero-&gt;<span class="fn">GetAttributeSet</span>() : <span class="kw">nullptr</span>; }
+
+<span class="kw">void</span> <span class="ty">ALOLPlayerState</span>::<span class="fn">SetControlledHero</span>(<span class="ty">ALOLHeroCharacter</span>* NewHero)
+{
+    <span class="kw">if</span> (ControlledHero) ControlledHero-&gt;<span class="fn">SetOwner</span>(<span class="kw">nullptr</span>);   <span class="cm">// 解除旧英雄归属</span>
+    ControlledHero = NewHero;
+    <span class="kw">if</span> (NewHero) NewHero-&gt;<span class="fn">SetOwner</span>(<span class="fn">GetPlayerController</span>());   <span class="cm">// Mixed 模式拥有连接</span>
+    <span class="cm">// 英雄自带 ASC，已在其 PossessedBy/BeginPlay 初始化 → 切换无需迁移属性</span>
+}
+
+<span class="kw">void</span> <span class="ty">ALOLPlayerState</span>::<span class="fn">OnRep_ControlledHero</span>()
+{
+    <span class="cm">// 客户端表现：相机改跟随 ControlledHero、HUD 重新绑定其属性委托（见 3.6）</span>
+}</code></pre>
+  <div class="pre-title">GameMode：生成英雄时设 Owner（Mixed 模式必做）</div>
+  <pre><code><span class="cm">// HandleStartingNewPlayer_Implementation 内，SpawnActor 之前：</span>
+<span class="ty">FActorSpawnParameters</span> SpawnParams;
+SpawnParams.SpawnCollisionHandlingOverride = <span class="ty">ESpawnActorCollisionHandlingMethod</span>::AlwaysSpawn;
+SpawnParams.Owner = NewPC;   <span class="cm">// ← 关键：BeginPlay 前 Owner 就绪，Mixed 模式才能识别拥有连接</span></code></pre>
+
+  <h3 id="impl-6"><span class="badge opt">Step 6</span>默认属性：用 GE + Curve Table 做等级成长</h3>
+  <ol>
+    <li>在编辑器新建 GameplayEffect 蓝图 <code>GE_DefaultAttributes</code>，<b>Duration Policy = Instant</b>。</li>
+    <li>为每个要初始化的属性加一个 Modifier，<b>Op = Override</b>，Magnitude 选 <b>Scalable Float</b>。</li>
+    <li>新建 Curve Table <code>CT_HeroBaseStats</code>，每个属性一条曲线，X=英雄等级、Y=数值（如 MaxHealth：1级640，每级+100）。把 Scalable Float 关联到对应曲线。</li>
+    <li>在<b>英雄蓝图</b>里把 <code>DefaultAttributesEffect</code> 指给 <code>GE_DefaultAttributes</code>（每个英雄可指向各自的成长表，天然支持"不同英雄不同数值"）。升级时按新等级重应用一次即可刷新成长。</li>
+  </ol>
+
+  <h3 id="impl-7"><span class="badge opt">Step 7</span>伤害结算：ExecCalc 实现公式</h3>
+  <p>新建 <code>ULOLDamageExecCalc : public UGameplayEffectExecutionCalculation</code>，捕获双方属性，按第 5 节公式算出最终伤害，输出到 <code>IncomingDamage</code>。骨架：</p>
+  <pre><code><span class="kw">struct</span> <span class="ty">FLOLDamageStatics</span>
+{
+    <span class="nm">DECLARE_ATTRIBUTE_CAPTUREDEF</span>(Armor);
+    <span class="nm">DECLARE_ATTRIBUTE_CAPTUREDEF</span>(ArmorPenFlat);
+    <span class="nm">DECLARE_ATTRIBUTE_CAPTUREDEF</span>(ArmorPenPercent);
+    <span class="nm">DECLARE_ATTRIBUTE_CAPTUREDEF</span>(CritChance);
+    <span class="nm">DECLARE_ATTRIBUTE_CAPTUREDEF</span>(CritDamage);
+    <span class="fn">FLOLDamageStatics</span>()
+    {
+        <span class="nm">DEFINE_ATTRIBUTE_CAPTUREDEF</span>(<span class="ty">ULOLAttributeSet</span>, Armor,          Target, <span class="kw">false</span>);
+        <span class="nm">DEFINE_ATTRIBUTE_CAPTUREDEF</span>(<span class="ty">ULOLAttributeSet</span>, ArmorPenFlat,    Source, <span class="kw">true</span>);
+        <span class="nm">DEFINE_ATTRIBUTE_CAPTUREDEF</span>(<span class="ty">ULOLAttributeSet</span>, ArmorPenPercent, Source, <span class="kw">true</span>);
+        <span class="nm">DEFINE_ATTRIBUTE_CAPTUREDEF</span>(<span class="ty">ULOLAttributeSet</span>, CritChance,      Source, <span class="kw">true</span>);
+        <span class="nm">DEFINE_ATTRIBUTE_CAPTUREDEF</span>(<span class="ty">ULOLAttributeSet</span>, CritDamage,      Source, <span class="kw">true</span>);
+    }
+};
+<span class="cm">// Execute_Implementation 内：取基础伤害(SetByCaller) → 算 EffectiveArmor →</span>
+<span class="cm">// 乘减伤系数 → 掷暴击 → AddOutputModifier(IncomingDamage, Additive, Final)</span>
+<span class="ty">OutExecutionOutput</span>.<span class="fn">AddOutputModifier</span>(<span class="ty">FGameplayModifierEvaluatedData</span>(
+    <span class="ty">FLOLDamageStatics</span>::<span class="fn">GetIncomingDamageAttribute</span>(), <span class="ty">EGameplayModOp</span>::Additive, FinalDamage));</code></pre>
+  <div class="box note"><span class="t">基础伤害怎么传进来</span>用 <b>SetByCaller</b>（技能里 <code>AssignTagSetByCallerMagnitude</code>）把"本次技能系数×AD/AP"传给伤害 GE，ExecCalc 读出后再过减伤。物理/法术只是捕获的防御属性不同，可用一个 ExecCalc + 伤害类型 Tag 区分。</div>
+
+  <h3 id="impl-8"><span class="badge opt">Step 8</span>生命/法力回复：周期性 GE</h3>
+  <ul>
+    <li>新建 <code>GE_HealthRegen</code>：<b>Duration Policy = Infinite</b>，<b>Period = 1.0</b>。</li>
+    <li>Modifier：<code>Health += HealthRegen</code>，Magnitude 用 <b>Attribute Based</b> 捕获 <code>HealthRegen</code>（系数=周期秒数）。</li>
+    <li>英雄初始化后对自己 Apply 一次，无限周期自动回血；<code>PostGameplayEffectExecute</code> 已保证 clamp 到 MaxHealth。<code>GE_ManaRegen</code> 同理。</li>
+  </ul>
+
+  </div>
+</section>
+
+<!-- ============ 7 路线图 ============ -->
+<section id="roadmap">
+  <h2 class="sec"><span class="num">07</span>开发路线图</h2>
+  <table>
+    <thead><tr><th>阶段</th><th>目标</th><th>本设计覆盖</th></tr></thead>
+    <tbody>
+      <tr><td><b>P1 属性地基</b></td><td>英雄自带 ASC/AttributeSet、初始化打通、默认属性+回复、简易血条 UI 验证</td><td>Step 0–6、8 ✅</td></tr>
+      <tr><td><b>P1.5 英雄切换</b></td><td>多英雄实例 + <code>SetControlledHero</code> 切指向 + 相机/HUD/输入重定向</td><td>3.6 + Step 5 ✅</td></tr>
+      <tr><td><b>P2 普攻 & 伤害</b></td><td>普攻 GameplayAbility + 伤害 ExecCalc（护甲/穿透/暴击/吸血），死亡流程（隐藏+重生，不销毁）</td><td>Step 7 + GA</td></tr>
+      <tr><td><b>P3 装备系统</b></td><td>装备 = 一组 Infinite GE（改 CurrentValue），穿/脱即 Apply/Remove</td><td>BaseValue/Current 模型 ✅</td></tr>
+      <tr><td><b>P4 技能 QWER</b></td><td>GA + Cost/Cooldown GE（AH→冷却用 MMC）、CC + 韧性、治疗/护盾（HSP）</td><td>公式参考 ✅</td></tr>
+    </tbody>
+  </table>
+  <div class="box tip"><span class="t">输入如何触达技能（P2 预告）</span>因为英雄被 AI 占有，技能输入仍由 <code>ALOLPlayerController</code> 接收，再 <code>GetControlledHero()-&gt;GetAbilitySystemComponent()-&gt;...</code> 转发激活——切换英雄后自动指向新英雄，无需改链路。</div>
+</section>
+
+<!-- ============ 8 坑 ============ -->
+<section id="pitfall">
+  <h2 class="sec"><span class="num">08</span>命名规范 &amp; 常见坑</h2>
+  <h4>命名规范</h4>
+  <ul>
+    <li>属性用<b>名词、PascalCase</b>，与面板语义一致（<code>AttackDamage</code> 而非 <code>AD</code>）。</li>
+    <li>资产前缀：GameplayEffect → <code>GE_</code>，GameplayAbility → <code>GA_</code>，Curve Table → <code>CT_</code>，GameplayCue → <code>GC_</code>。</li>
+    <li>Meta 属性统一 <code>Incoming*</code> 前缀，便于一眼识别"不复制、用完清零"。</li>
+  </ul>
+  <h4>高频踩坑清单</h4>
+  <table>
+    <thead><tr><th>坑</th><th>后果</th><th>对策</th></tr></thead>
+    <tbody>
+      <tr><td>忘了把 GAS 加进 Build.cs</td><td>头文件找不到，编译失败</td><td>Step 0</td></tr>
+      <tr><td><b>Mixed 模式下英雄 Owner 未就绪</b></td><td>GE 不发给拥有客户端 / 预测异常</td><td>生成时 <code>SpawnParams.Owner = NewPC</code>（Step 5）</td></tr>
+      <tr><td><b>英雄死亡时 Destroy()</b></td><td>ASC 随之销毁 → 属性/等级丢失</td><td>死亡=隐藏+禁用+原地重生；元数据存 PlayerState</td></tr>
+      <tr><td><b>切换英雄后 HUD 仍绑旧英雄</b></td><td>面板显示的是上一个英雄</td><td>切换时解绑旧委托、绑定新英雄（3.6）</td></tr>
+      <tr><td>OnRep 没用 REPNOTIFY_Always</td><td>预测值==服务器值时 UI 不刷新</td><td>登记时带 <code>REPNOTIFY_Always</code></td></tr>
+      <tr><td>Meta 属性也参与复制</td><td>带宽浪费、逻辑错乱</td><td>不写进 GetLifetimeReplicatedProps</td></tr>
+      <tr><td>用完 Meta 属性忘记清零</td><td>伤害被重复结算</td><td>结算后 <code>SetIncomingDamage(0)</code></td></tr>
+      <tr><td>只在 PreAttributeChange 钳制</td><td>BaseValue 仍可越界</td><td>PreAttributeBaseChange 也钳一遍</td></tr>
+      <tr><td>客户端直接 Apply GE 改属性</td><td>不生效/被回滚</td><td>属性修改一律服务器权威</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  LOL_Demo · 英雄属性系统（GAS）架构设计 · <b>属性挂载于英雄自身（支持英雄切换）</b> · 面向 P1 属性地基 ~ P4 技能 ·
+  本文档为设计与实施指南，落地代码请按第 6 节逐步实现。需要我把完整 <span class="tag">LOLAttributeSet.h/.cpp</span>、ASC、Hero/PlayerState/GameMode 改动直接写进工程，随时说。
+</footer>
+</main>
+</div>
+</body>
+</html>
