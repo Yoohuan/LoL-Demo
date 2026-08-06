@@ -62,4 +62,9 @@ private:
 	
 	float ComputeAxisIntensity(float Pos, float Size) const;
 	
+protected:
+	// 增加一个由 Controller 发起的服务器移动命令
+	UFUNCTION(Server, Reliable)
+	void Server_IssueHeroMove(const FVector& TargetLocation);
+	
 };

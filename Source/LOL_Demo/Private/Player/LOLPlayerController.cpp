@@ -119,8 +119,19 @@ void ALOLPlayerController::OnClickCommand(const FInputActionValue& Value)
 	if (GetHitResultUnderCursor(ECC_Visibility, false, Hit))
 	{
 		HeroCharacter->IssueMoveOrder(Hit.ImpactPoint);
+		
+		Server_IssueHeroMove(Hit.ImpactPoint);
 	}
 	
+}
+
+void ALOLPlayerController::Server_IssueHeroMove_Implementation(const FVector& TargetLocation)
+{
+	ALOLHeroCharacter* ServerHero = GetControlledHero();
+	if (ServerHero)
+	{
+		ServerHero->IssueMoveOrder(TargetLocation);
+	}
 }
 
 float ALOLPlayerController::ComputeAxisIntensity(float Pos, float Size) const
