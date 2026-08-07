@@ -16,6 +16,9 @@ ALOLPlayerController::ALOLPlayerController()
 	bShowMouseCursor = true;
 	DefaultMouseCursor = EMouseCursor::Default;
 
+	// PC 现在占有英雄；视角固定给本地相机，禁止引擎在 Possess 时自动把 ViewTarget 切到 Pawn
+	bAutoManageActiveCameraTarget = false;
+	CameraPawnClass = ALOLTopCameraPawn::StaticClass();
 }
 
 void ALOLPlayerController::SetupInputComponent()
@@ -46,8 +49,16 @@ void ALOLPlayerController::BeginPlay()
 		LocalPlayerSubsystem->AddMappingContext(IMC_LOL, 0);
 	}
 	
-	CameraPawn = Cast<ALOLTopCameraPawn>(GetPawn());
-	
+	// 相机是纯本地表现：只在本地控制器上生成（不复制、不占有），并固定为视点
+	if (IsLocalController() && CameraPawnClass)
+	{
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		const ALOLHeroCharacter* Hero = GetControlledHero();
+		const FVector SpawnLoc = Hero ? Hero->GetActorLocation() : FVector::ZeroVector;
+		CameraPawn = GetWorld()->SpawnActor<ALOLTopCameraPawn>(CameraPawnClass, SpawnLoc, FRotator::ZeroRotator, Params);
+		SetViewTarget(CameraPawn);
+	}
 }
 
 void ALOLPlayerController::PlayerTick( float DeltaTime )
@@ -89,12 +100,13 @@ void ALOLPlayerController::PlayerTick( float DeltaTime )
 void ALOLPlayerController::OnMoveCamera(const FInputActionValue& Value)
 {
 	if (!CameraPawn) return;
-	
+
 	const FVector2D Dir = Value.Get<FVector2D>();
-	
+
+	// 相机未被占有，FloatingPawnMovement 不再工作（它要求本地 Controller）→ 直接位移驱动
 	const FVector WorldDir(-Dir.Y, Dir.X, 0.f);
-	CameraPawn->AddMovementInput(WorldDir, EdgePanStrength);
-	
+	CameraPawn->AddActorWorldOffset(WorldDir * EdgePanStrength * CameraPanSpeed * GetWorld()->GetDeltaSeconds());
+
 }
 
 void ALOLPlayerController::OnToggleLock(const FInputActionValue& Value)
@@ -118,20 +130,11 @@ void ALOLPlayerController::OnClickCommand(const FInputActionValue& Value)
 	FHitResult Hit;
 	if (GetHitResultUnderCursor(ECC_Visibility, false, Hit))
 	{
+		// 本地寻路 → 逐帧 AddMovementInput → CMC 预测（零延迟起步）并自动 ServerMove 上行
+		// 不再需要 Server RPC：服务器通过 CMC 的移动上报天然获知
 		HeroCharacter->IssueMoveOrder(Hit.ImpactPoint);
-		
-		Server_IssueHeroMove(Hit.ImpactPoint);
 	}
-	
-}
 
-void ALOLPlayerController::Server_IssueHeroMove_Implementation(const FVector& TargetLocation)
-{
-	ALOLHeroCharacter* ServerHero = GetControlledHero();
-	if (ServerHero)
-	{
-		ServerHero->IssueMoveOrder(TargetLocation);
-	}
 }
 
 float ALOLPlayerController::ComputeAxisIntensity(float Pos, float Size) const

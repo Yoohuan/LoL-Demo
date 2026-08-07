@@ -1,23 +1,16 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "Net/UnrealNetwork.h"
 #include "PlayerState/LOLPlayerState.h"
 
+#include "Net/UnrealNetwork.h"
 #include "Character/LOLHeroCharacter.h"
 
 void ALOLPlayerState::SetControlledHero(ALOLHeroCharacter* NewHero)
 {
-	if (ControlledHero)
-	{
-		ControlledHero->SetOwner(nullptr);
-	}
-
+	// Owner/归属链现在由 Possess 流程自动维护（APawn::PossessedBy → SetOwner(Controller)），
+	// 这里只记录"当前操控的是谁"。未来英雄切换：PC->Possess(新英雄) + 本函数更新指向，
+	// 旧英雄 SpawnDefaultController() 交还 AI。
 	ControlledHero = NewHero;
-
-	if (NewHero)
-	{
-		NewHero->SetOwner(GetPlayerController());
-	}
 }
 
 UAbilitySystemComponent* ALOLPlayerState::GetControlledHeroASC() const

@@ -45,6 +45,11 @@ protected:
 	float SoftZonePixels = 40.f;
 	UPROPERTY(EditDefaultsOnly, Category="LOL|Camera")
 	float EdgePanStrength     = 1.f;
+	// 相机改为本地生成（不再被 Possess），推屏速度取代 FloatingPawnMovement 的 MaxSpeed
+	UPROPERTY(EditDefaultsOnly, Category="LOL|Camera")
+	TSubclassOf<ALOLTopCameraPawn> CameraPawnClass;
+	UPROPERTY(EditDefaultsOnly, Category="LOL|Camera")
+	float CameraPanSpeed = 3000.f;
 	
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
@@ -61,10 +66,5 @@ private:
 	bool bCameraLocked = true;
 	
 	float ComputeAxisIntensity(float Pos, float Size) const;
-	
-protected:
-	// 增加一个由 Controller 发起的服务器移动命令
-	UFUNCTION(Server, Reliable)
-	void Server_IssueHeroMove(const FVector& TargetLocation);
-	
+
 };
