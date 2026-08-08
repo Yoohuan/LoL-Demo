@@ -57,6 +57,7 @@ public:
 	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	UFUNCTION(BlueprintCallable, Category="LOL|Move")
 	void IssueMoveOrder(const FVector& TargetLocation);
 
 };

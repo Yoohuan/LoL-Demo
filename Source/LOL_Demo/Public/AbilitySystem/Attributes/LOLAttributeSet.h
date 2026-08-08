@@ -28,6 +28,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     virtual void PreAttributeChange(const FGameplayAttribute& Attr, float& NewValue) override;
     virtual void PreAttributeBaseChange(const FGameplayAttribute& Attr, float& NewValue) const override;
+    virtual void PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) override;
     virtual void PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data) override;
 
     // ===== Vital =====
@@ -120,7 +121,7 @@ protected:
 	UFUNCTION() void OnRep_HealShieldPower(const FGameplayAttributeData& Old) const;
 
 private:
-	void AdjustAttributeForMaxChange(const FGameplayAttributeData& Affected, const FGameplayAttributeData& Max, float NewMax, const FGameplayAttribute& AffectedProp) const;
+	void AdjustAttributeForMaxChange(const FGameplayAttribute& AffectedAttr, float CurrentValue, float OldMax, float NewMax) const;
 	void ClampAttribute(const FGameplayAttribute& Attr, float& NewValue) const;
 	
 };

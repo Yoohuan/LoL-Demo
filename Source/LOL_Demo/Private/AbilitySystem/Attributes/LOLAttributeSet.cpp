@@ -53,8 +53,17 @@ void ULOLAttributeSet::PreAttributeChange(const FGameplayAttribute& Attr, float&
 {
 	Super::PreAttributeChange(Attr, NewValue);
 	ClampAttribute(Attr, NewValue);
-	if (Attr == GetMaxHealthAttribute())      AdjustAttributeForMaxChange(Health, MaxHealth, NewValue, GetHealthAttribute());
-	else if (Attr == GetMaxManaAttribute())   AdjustAttributeForMaxChange(Mana,   MaxMana,   NewValue, GetManaAttribute());
+}
+
+void ULOLAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
+{
+	Super::PostAttributeChange(Attribute, OldValue, NewValue);
+	// Max 变化后按比例补偿当前值。必须在 Post 阶段：此时 Max 已提交，
+	// 补偿写入不会再被 ClampAttribute 用旧 Max 钳掉（在 Pre 阶段做会丢失上调方向的补偿）
+	if (Attribute == GetMaxHealthAttribute())
+		AdjustAttributeForMaxChange(GetHealthAttribute(), GetHealth(), OldValue, NewValue);
+	else if (Attribute == GetMaxManaAttribute())
+		AdjustAttributeForMaxChange(GetManaAttribute(), GetMana(), OldValue, NewValue);
 }
 
 void ULOLAttributeSet::PreAttributeBaseChange(const FGameplayAttribute& Attr, float& NewValue) const
@@ -201,16 +210,14 @@ void ULOLAttributeSet::OnRep_HealShieldPower(const FGameplayAttributeData& Old) 
 	GAMEPLAYATTRIBUTE_REPNOTIFY(ULOLAttributeSet, HealShieldPower, Old);
 }
 
-void ULOLAttributeSet::AdjustAttributeForMaxChange(const FGameplayAttributeData& Affected,
-	const FGameplayAttributeData& Max, float NewMax, const FGameplayAttribute& AffectedProp) const
+void ULOLAttributeSet::AdjustAttributeForMaxChange(const FGameplayAttribute& AffectedAttr,
+	float CurrentValue, float OldMax, float NewMax) const
 {
 	UAbilitySystemComponent* ASC = GetOwningAbilitySystemComponent();
-	const float CurMax = Max.GetCurrentValue();
-	if (ASC && !FMath::IsNearlyEqual(CurMax, NewMax))
+	if (ASC && !FMath::IsNearlyEqual(OldMax, NewMax))
 	{
-		const float Cur = Affected.GetCurrentValue();
-		const float Delta = (CurMax > 0.f) ? (Cur * NewMax / CurMax - Cur) : NewMax;
-		ASC->ApplyModToAttributeUnsafe(AffectedProp, EGameplayModOp::Additive, Delta);
+		const float Delta = (OldMax > 0.f) ? (CurrentValue * NewMax / OldMax - CurrentValue) : NewMax;
+		ASC->ApplyModToAttributeUnsafe(AffectedAttr, EGameplayModOp::Additive, Delta);
 	}
 }
 
